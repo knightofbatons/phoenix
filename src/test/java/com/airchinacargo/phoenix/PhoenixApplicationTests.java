@@ -25,7 +25,8 @@ public class PhoenixApplicationTests {
 
     /**
      * 测试获取 Token
-     * @throws UnirestException
+     *
+     * @throws UnirestException http 请求异常
      */
     @Test
     public void getYzTokenTest() throws UnirestException {
@@ -34,7 +35,8 @@ public class PhoenixApplicationTests {
 
     /**
      * 测试获取订单
-     * @throws UnirestException
+     *
+     * @throws UnirestException http 请求异常
      */
     @Test
     public void getYzTradesSoldTest() throws UnirestException {

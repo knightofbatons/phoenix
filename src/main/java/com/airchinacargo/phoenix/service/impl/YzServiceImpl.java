@@ -1,12 +1,16 @@
 package com.airchinacargo.phoenix.service.impl;
 
 import com.airchinacargo.phoenix.domain.entity.YzToken;
+import com.airchinacargo.phoenix.domain.entity.YzTrade;
 import com.airchinacargo.phoenix.domain.repository.IYzTokenRepository;
 import com.airchinacargo.phoenix.service.interfaces.IYzService;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 
 /**
  * @author ChenYu 2018 03 13
@@ -103,29 +108,34 @@ public class YzServiceImpl implements IYzService {
      * <p>
      * FIELDS 需要的订单信息字段
      */
-    //private final String FIELDS = "tid,title,receiver_city,receiver_address,update_time,receiver_mobile,receiver_name";
+    private final String FIELDS = "num,tid,orders,receiver_city,receiver_state,receiver_district,receiver_address,receiver_mobile,receiver_name";
 
     /**
-     * 获取有赞付款未发货订单
+     * 获取付款未发货订单
      *
-     * @param accessToken
+     * @param accessToken 读到的有赞授权 token
+     * @return List<YzTrade> yzTrades 返回包含所有 tread 的 List tread 里 包含 order 这个 order 在新的订单设置下和以往不同会有多个
      */
     @Override
-    public void getYzTradesSold(String accessToken) {
+    public List<YzTrade> getYzTradesSold(String accessToken) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.trades.sold/3.0.0/get")
                     .header("accept", "application/json")
                     .header("Content-Type", "application/json")
                     .queryString("status", "WAIT_SELLER_SEND_GOODS")
-                    //.queryString("fields", FIELDS)
+                    .queryString("fields", FIELDS)
                     .queryString("access_token", accessToken)
                     .asJson();
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info("[ getYzTradesSold ] --> " + response.getBody());
-        //TODO 根据新的有赞订单组织形式解析出需要的订单字段 E20180313084627051900006
+        JSONArray tradesArray = response.getBody().getObject().getJSONObject("response").getJSONArray("trades");
+        Gson gson = new Gson();
+        List<YzTrade> yzTrades = gson.fromJson(String.valueOf(tradesArray), new TypeToken<List<YzTrade>>() {
+        }.getType());
+        logger.info("[ getYzTradesSold ] --> " + yzTrades);
+        return yzTrades;
     }
 
 }
