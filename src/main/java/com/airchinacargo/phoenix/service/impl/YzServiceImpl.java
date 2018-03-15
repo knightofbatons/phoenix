@@ -1,8 +1,8 @@
 package com.airchinacargo.phoenix.service.impl;
 
-import com.airchinacargo.phoenix.domain.entity.YzToken;
+import com.airchinacargo.phoenix.domain.entity.Token;
 import com.airchinacargo.phoenix.domain.entity.YzTrade;
-import com.airchinacargo.phoenix.domain.repository.IYzTokenRepository;
+import com.airchinacargo.phoenix.domain.repository.ITokenRepository;
 import com.airchinacargo.phoenix.service.interfaces.IYzService;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -28,16 +28,17 @@ import java.util.List;
 public class YzServiceImpl implements IYzService {
 
     @Autowired
-    IYzTokenRepository yzTokenRepository;
+    ITokenRepository tokenRepository;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     /**
-     * 获取有赞 Token 需要的参数 从配置文件读取
+     * 获取有赞 Token 需要的参数 前三个是从配置文件读取的
      * <p>
      * ClientId 有赞 ID
      * ClientSecret 有赞密码
      * KdtId 有赞店铺 ID
+     * YZ 数据库里有赞的标记
      */
     @Value("${Yz.CLIENT_ID}")
     private String clientId;
@@ -45,14 +46,15 @@ public class YzServiceImpl implements IYzService {
     private String clientSecret;
     @Value("${Yz.KDT_ID}")
     private String kdtId;
+    private final int YZ = 0;
 
     /**
-     * 获取有赞授权并更新 Token 到数据库
+     * 获取有赞授权并更新 token 到数据库
      *
-     * @return YzToken 用于有赞免签名请求有效期 7 天
+     * @return Token
      */
     @Override
-    public YzToken getYzToken() {
+    public Token getYzToken() {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://open.youzan.com/oauth/token")
@@ -65,15 +67,15 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        String token = response.getBody().getObject().get("access_token").toString();
-        logger.info("[ getYzToken ] --> " + token);
-        YzToken yzToken = new YzToken(0, token, new Date());
+        String accessToken = response.getBody().getObject().get("access_token").toString();
+        Token yzToken = new Token(YZ, accessToken, "NO_REFRESH_TOKEN", new Date());
         try {
-            yzTokenRepository.deleteById(0);
+            tokenRepository.deleteById(0);
         } catch (Exception e) {
             logger.info("[ getYzToken ] --> never have Yz token before");
         }
-        yzTokenRepository.save(yzToken);
+        tokenRepository.save(yzToken);
+        logger.info("[ getYzToken ] --> " + yzToken.getDate());
         return yzToken;
     }
 
@@ -88,19 +90,19 @@ public class YzServiceImpl implements IYzService {
     private final int DAYS = 6;
 
     /**
-     * 从数据库读取储存的 Token 没有直接请求一个新的 有的话判断如果不过时直接返回 过时重新请求后更新数据库并返回 计划 6 天更新一次
+     * 从数据库读取储存的 token 如果不过时直接返回 过时更新数据库并返回
      *
-     * @return Token
+     * @return String 有赞的 access token
      */
     @Override
     public String readYzToken() {
         // 存在直接赋值不存在就去请求
-        YzToken yzToken = yzTokenRepository.findById(0).orElseGet(() -> getYzToken());
+        Token yzToken = tokenRepository.findById(0).orElseGet(() -> getYzToken());
         // 判断如果没超过时限就继续用
         if ((System.currentTimeMillis() - yzToken.getDate().getTime()) / MILLIS_ONE_DAY < DAYS) {
-            return yzToken.getToken();
+            return yzToken.getAccessToken();
         }
-        return getYzToken().getToken();
+        return getYzToken().getAccessToken();
     }
 
     /**
@@ -114,7 +116,7 @@ public class YzServiceImpl implements IYzService {
      * 获取付款未发货订单
      *
      * @param accessToken 读到的有赞授权 token
-     * @return List<YzTrade> yzTrades 返回包含所有 tread 的 List tread 里 包含 order 这个 order 在新的订单设置下和以往不同会有多个
+     * @return List<YzTrade> 返回包含所有 tread 的 List tread 里 包含 order 这个 order 在新的订单设置下和以往不同会有多个
      */
     @Override
     public List<YzTrade> getYzTradesSold(String accessToken) {
