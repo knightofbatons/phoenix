@@ -1,5 +1,7 @@
 package com.airchinacargo.phoenix.domain.entity;
 
+import com.google.gson.annotations.SerializedName;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.Id;
@@ -16,8 +18,10 @@ public class Token {
     @Column(name = "id")
     private int id;
     @Column(name = "access_token")
+    @SerializedName("access_token")
     private String accessToken;
     @Column(name = "refresh_token")
+    @SerializedName("refresh_token")
     private String refreshToken;
     @Column(name = "date")
     private Date date;

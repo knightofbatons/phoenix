@@ -10,7 +10,6 @@ import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
-import org.json.JSONArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,9 +34,9 @@ public class YzServiceImpl implements IYzService {
     /**
      * 获取有赞 Token 需要的参数 前三个是从配置文件读取的
      * <p>
-     * ClientId 有赞 ID
-     * ClientSecret 有赞密码
-     * KdtId 有赞店铺 ID
+     * clientId 有赞 ID
+     * clientSecret 有赞密码
+     * kdtId 有赞店铺 ID
      * YZ 数据库里有赞的标记
      */
     @Value("${Yz.CLIENT_ID}")
@@ -70,7 +69,7 @@ public class YzServiceImpl implements IYzService {
         String accessToken = response.getBody().getObject().get("access_token").toString();
         Token yzToken = new Token(YZ, accessToken, "NO_REFRESH_TOKEN", new Date());
         try {
-            tokenRepository.deleteById(0);
+            tokenRepository.deleteById(YZ);
         } catch (Exception e) {
             logger.info("[ getYzToken ] --> never have Yz token before");
         }
@@ -97,7 +96,7 @@ public class YzServiceImpl implements IYzService {
     @Override
     public String readYzToken() {
         // 存在直接赋值不存在就去请求
-        Token yzToken = tokenRepository.findById(0).orElseGet(() -> getYzToken());
+        Token yzToken = tokenRepository.findById(YZ).orElseGet(() -> getYzToken());
         // 判断如果没超过时限就继续用
         if ((System.currentTimeMillis() - yzToken.getDate().getTime()) / MILLIS_ONE_DAY < DAYS) {
             return yzToken.getAccessToken();
@@ -132,9 +131,9 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        JSONArray tradesArray = response.getBody().getObject().getJSONObject("response").getJSONArray("trades");
+        String tradesArray = response.getBody().getObject().getJSONObject("response").getJSONArray("trades").toString();
         Gson gson = new Gson();
-        List<YzTrade> yzTrades = gson.fromJson(String.valueOf(tradesArray), new TypeToken<List<YzTrade>>() {
+        List<YzTrade> yzTrades = gson.fromJson(tradesArray, new TypeToken<List<YzTrade>>() {
         }.getType());
         logger.info("[ getYzTradesSold ] --> " + yzTrades);
         return yzTrades;
