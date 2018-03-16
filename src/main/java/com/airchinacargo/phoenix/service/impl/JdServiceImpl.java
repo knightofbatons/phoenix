@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.UnsupportedEncodingException;
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import static org.apache.commons.codec.digest.DigestUtils.md5Hex;
@@ -115,8 +116,26 @@ public class JdServiceImpl implements IJdService {
     public Token readJdToken() {
         // 存在直接赋值不存在就去请求
         Token yzToken = tokenRepository.findById(JD).orElseGet(() -> getJdToken());
-        logger.info("[ readJdToken ] -->");
-        return yzToken;
+        if (isToday(yzToken.getDate())) {
+            logger.info("[ readJdToken ] --> return today token");
+            return yzToken;
+        }
+        logger.info("[ readJdToken ] --> return refresh token");
+        return refreshJdToken(yzToken.getRefreshToken());
+    }
+
+    /**
+     * 判断 token 是不是今天的，用来防止定时任务出错后的停摆，或者作为备用方案完全替代定时任务来刷新 token
+     *
+     * @param date
+     * @return boolean 是否是同一天
+     */
+    private boolean isToday(Date date) {
+        Date now = new Date();
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        String today = simpleDateFormat.format(now);
+        String anotherDay = simpleDateFormat.format(date);
+        return today.equals(anotherDay);
     }
 
     /**
@@ -128,9 +147,10 @@ public class JdServiceImpl implements IJdService {
      * 用 refresh token 刷新 access token 计划添加在定时任务中每天刷新 刷新失败就重新请求
      *
      * @param refreshToken 刷新 access token 用的 token
+     * @return Token 京东的 access token 等
      */
     @Override
-    public void refreshJdToken(String refreshToken) {
+    public Token refreshJdToken(String refreshToken) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/oauth2/refreshToken")
@@ -144,16 +164,37 @@ public class JdServiceImpl implements IJdService {
         String isSuccess = response.getBody().getObject().get("success").toString();
         if (FALSE.equals(isSuccess)) {
             logger.info("[ refreshJdToken ] --> refresh failed run getJdToken to get a new one");
-            getJdToken();
-        } else {
-            String token = response.getBody().getObject().getJSONObject("result").toString();
-            Gson gson = new Gson();
-            Token jdToken = gson.fromJson(token, new TypeToken<Token>() {
-            }.getType());
-            jdToken.setId(JD);
-            jdToken.setDate(new Date());
-            tokenRepository.save(jdToken);
-            logger.info("[ refreshJdToken ] --> refresh success save to database");
+            return getJdToken();
         }
+        String token = response.getBody().getObject().getJSONObject("result").toString();
+        Gson gson = new Gson();
+        Token jdToken = gson.fromJson(token, new TypeToken<Token>() {
+        }.getType());
+        jdToken.setId(JD);
+        jdToken.setDate(new Date());
+        tokenRepository.save(jdToken);
+        logger.info("[ refreshJdToken ] --> refresh success save to database");
+        return jdToken;
+    }
+
+    /**
+     * 通过详细地址获取京东地址
+     *
+     * @param accessToken 接入授权 token
+     * @param address     详细地址
+     * @return String 京东四级编码和名称
+     */
+    @Override
+    public String getJdAddressFromAddress(String address, String accessToken) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/area/getJDAddressFromAddress")
+                    .queryString("token", accessToken)
+                    .queryString("address", address)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        return response.getBody().getObject().toString();
     }
 }

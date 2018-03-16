@@ -10,9 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.text.DateFormat;
-import java.util.Date;
-
 @RunWith(SpringRunner.class)
 @SpringBootTest
 public class PhoenixApplicationTests {
@@ -35,6 +32,14 @@ public class PhoenixApplicationTests {
     }
 
     /**
+     * 测试读取有赞 access token
+     */
+    @Test
+    public void readYzToken() {
+        logger.info(yzService.readYzToken());
+    }
+
+    /**
      * 测试获取有赞订单
      */
     @Test
@@ -45,13 +50,20 @@ public class PhoenixApplicationTests {
     @Autowired
     IJdService jdService;
 
-
     /**
      * 测试获取京东 token
      */
     @Test
     public void getJdTokenTest() {
         jdService.getJdToken();
+    }
+
+    /**
+     * 测试读取京东 token
+     */
+    @Test
+    public void readJdTokenTest() {
+        logger.info(jdService.readJdToken().getDate().toString());
     }
 
     /**
@@ -64,12 +76,10 @@ public class PhoenixApplicationTests {
     }
 
     /**
-     * 测试转换时间格式
+     * 测试京东
      */
     @Test
-    public void dateFormatTest() {
-        DateFormat mediumDateFormat = DateFormat.getDateTimeInstance
-                (DateFormat.MEDIUM, DateFormat.MEDIUM);
-        logger.info(mediumDateFormat.format(new Date()));
+    public void getJdAddressFromAddressTest() {
+        logger.info(jdService.getJdAddressFromAddress("", jdService.readJdToken().getAccessToken()));
     }
 }
