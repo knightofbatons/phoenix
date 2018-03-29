@@ -5,6 +5,8 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 /**
+ * 有赞订单
+ *
  * @author ChenYu 2018 03 14
  */
 public class YzTrade {

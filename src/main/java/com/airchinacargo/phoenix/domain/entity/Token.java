@@ -9,6 +9,8 @@ import javax.persistence.Table;
 import java.util.Date;
 
 /**
+ * 授权信息
+ *
  * @author ChenYu 2018 03 15
  */
 @Entity

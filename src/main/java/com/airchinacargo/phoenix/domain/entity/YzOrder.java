@@ -3,6 +3,8 @@ package com.airchinacargo.phoenix.domain.entity;
 import com.google.gson.annotations.SerializedName;
 
 /**
+ * 有赞订单分单
+ *
  * @author ChenYu 2018 03 14
  */
 public class YzOrder {
@@ -64,5 +66,13 @@ public class YzOrder {
                 ", itemId='" + itemId + '\'' +
                 ", skuId='" + skuId + '\'' +
                 '}';
+    }
+
+    public YzOrder(int orderNum, String oid, String title, String itemId, String skuId) {
+        this.orderNum = orderNum;
+        this.oid = oid;
+        this.title = title;
+        this.itemId = itemId;
+        this.skuId = skuId;
     }
 }

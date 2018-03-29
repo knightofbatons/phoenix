@@ -1,5 +1,9 @@
 package com.airchinacargo.phoenix;
 
+import com.airchinacargo.phoenix.domain.entity.SkuNum;
+import com.airchinacargo.phoenix.domain.entity.YzOrder;
+import com.airchinacargo.phoenix.domain.entity.YzTrade;
+import com.airchinacargo.phoenix.domain.repository.IYzToJdRepository;
 import com.airchinacargo.phoenix.service.interfaces.IJdService;
 import com.airchinacargo.phoenix.service.interfaces.IYzService;
 import org.junit.Test;
@@ -9,6 +13,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -22,14 +30,8 @@ public class PhoenixApplicationTests {
 
     @Autowired
     IYzService yzService;
-
-    /**
-     * 测试获取有赞 token
-     */
-    @Test
-    public void getYzTokenTest() {
-        yzService.getYzToken();
-    }
+    @Autowired
+    IYzToJdRepository yzToJdRepository;
 
     /**
      * 测试读取有赞 access token
@@ -44,19 +46,30 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getYzTradesSoldTest() {
-        yzService.getYzTradesSold(yzService.readYzToken());
+        logger.info(yzService.getYzTradesSold(yzService.readYzToken()).toString());
+    }
+
+    /**
+     * 测试从有赞订单获取期望在京东购买的商品以及数量
+     */
+    @Test
+    public void getSkuIdAndNumTest() {
+        YzTrade yzTrade = new YzTrade();
+
+        List<YzOrder> yzOrderList = Arrays.asList(
+                new YzOrder(1, "1", "1", "410875958", "1"),
+                new YzOrder(1, "2", "2", "410875960", "2"),
+                new YzOrder(10, "3", "3", "410876553", "3"),
+                new YzOrder(10, "3", "3", "410876551", "3")
+        );
+
+        yzTrade.setOrders(yzOrderList);
+
+        logger.info(yzService.getSkuIdAndNum(yzTrade).toString());
     }
 
     @Autowired
     IJdService jdService;
-
-    /**
-     * 测试获取京东 token
-     */
-    @Test
-    public void getJdTokenTest() {
-        jdService.getJdToken();
-    }
 
     /**
      * 测试读取京东 token
@@ -76,10 +89,80 @@ public class PhoenixApplicationTests {
     }
 
     /**
-     * 测试京东
+     * 测试京东获取地址
      */
     @Test
     public void getJdAddressFromAddressTest() {
-        logger.info(jdService.getJdAddressFromAddress("", jdService.readJdToken().getAccessToken()));
+        logger.info(String.valueOf(jdService.getJdAddressFromAddress("北京市顺义区天竺空港经济开发区天柱路29号", jdService.readJdToken().getAccessToken())));
     }
+
+    /**
+     * 测试京东查询区域库存
+     */
+    @Test
+    public void getNewStockBySkuIdAndAreaTest() {
+        YzTrade yzTrade = new YzTrade();
+
+        List<YzOrder> yzOrderList = Arrays.asList(
+                new YzOrder(1, "1", "1", "410875958", "1"),
+                new YzOrder(1, "2", "2", "410875960", "2"),
+                new YzOrder(10, "3", "3", "410876553", "3")
+        );
+
+        yzTrade.setOrders(yzOrderList);
+
+
+        String accessToken = jdService.readJdToken().getAccessToken();
+        Map<String, Integer> addressMap = jdService.getJdAddressFromAddress("北京市顺义区天竺空港经济开发区天柱路29号", accessToken);
+        String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
+        logger.info(jdService.getNewStockBySkuIdAndArea(accessToken, yzService.getSkuIdAndNum(yzTrade), area, false).toString());
+        logger.info(jdService.getNewStockBySkuIdAndArea(accessToken, yzService.getSkuIdAndNum(yzTrade), area, true).toString());
+    }
+
+    /**
+     * 测试获取真正要买的商品
+     */
+    @Test
+    public void getNeedToBuyTest() {
+        YzTrade yzTrade = new YzTrade();
+        List<YzOrder> yzOrderList = Arrays.asList(
+                new YzOrder(1, "1", "1", "410875958", "1"),
+                new YzOrder(1, "2", "2", "410875960", "2"),
+                new YzOrder(10, "3", "3", "410876553", "3")
+        );
+        yzTrade.setOrders(yzOrderList);
+
+        String accessToken = jdService.readJdToken().getAccessToken();
+        Map<String, Integer> addressMap = jdService.getJdAddressFromAddress("北京市顺义区天竺空港经济开发区天柱路29号", accessToken);
+        String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
+        List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
+        List<SkuNum> realSkuNum = jdService.getNeedToBuy(accessToken, planSkuNum, area);
+        logger.info(realSkuNum.toString());
+    }
+
+    /**
+     * 测试下单
+     */
+    @Test
+    public void submitOrderTest() {
+        List<YzTrade> yzTradeList = yzService.getYzTradesSold(yzService.readYzToken());
+        String accessToken = jdService.readJdToken().getAccessToken();
+        for (YzTrade yzTrade : yzTradeList) {
+            List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
+            // TODO 这个地方需要讨论 可能不能这么简单的判断 这个订单是否需要处理
+            if (planSkuNum.size() != 0) {
+
+                logger.info(yzTrade.toString());
+
+                String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
+                Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, accessToken);
+                String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
+
+                List<SkuNum> realSkuNum = jdService.getNeedToBuy(accessToken, planSkuNum, area);
+                logger.info(realSkuNum.toString());
+                //jdService.submitOrder(accessToken,yzTrade,realSkuNum,addressMap);
+            }
+        }
+    }
+
 }

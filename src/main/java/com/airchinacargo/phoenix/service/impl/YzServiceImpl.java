@@ -1,8 +1,8 @@
 package com.airchinacargo.phoenix.service.impl;
 
-import com.airchinacargo.phoenix.domain.entity.Token;
-import com.airchinacargo.phoenix.domain.entity.YzTrade;
+import com.airchinacargo.phoenix.domain.entity.*;
 import com.airchinacargo.phoenix.domain.repository.ITokenRepository;
+import com.airchinacargo.phoenix.domain.repository.IYzToJdRepository;
 import com.airchinacargo.phoenix.service.interfaces.IYzService;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -19,6 +19,8 @@ import org.springframework.stereotype.Service;
 import java.util.Date;
 import java.util.List;
 
+import static java.util.stream.Collectors.toList;
+
 /**
  * @author ChenYu 2018 03 13
  */
@@ -28,6 +30,8 @@ public class YzServiceImpl implements IYzService {
 
     @Autowired
     ITokenRepository tokenRepository;
+    @Autowired
+    IYzToJdRepository yzToJdRepository;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -74,7 +78,7 @@ public class YzServiceImpl implements IYzService {
             logger.info("[ getYzToken ] --> never have Yz token before");
         }
         tokenRepository.save(yzToken);
-        logger.info("[ getYzToken ] --> " + yzToken.getDate());
+        logger.info("[ getYzToken ] --> get new token");
         return yzToken;
     }
 
@@ -101,6 +105,7 @@ public class YzServiceImpl implements IYzService {
         if ((System.currentTimeMillis() - yzToken.getDate().getTime()) / MILLIS_ONE_DAY < DAYS) {
             return yzToken.getAccessToken();
         }
+        // 超过时限重新请求
         return getYzToken().getAccessToken();
     }
 
@@ -132,11 +137,26 @@ public class YzServiceImpl implements IYzService {
             e.printStackTrace();
         }
         String tradesArray = response.getBody().getObject().getJSONObject("response").getJSONArray("trades").toString();
+        // 将获取的 json 转化后返回
         Gson gson = new Gson();
-        List<YzTrade> yzTrades = gson.fromJson(tradesArray, new TypeToken<List<YzTrade>>() {
+        return gson.fromJson(tradesArray, new TypeToken<List<YzTrade>>() {
         }.getType());
-        logger.info("[ getYzTradesSold ] --> " + yzTrades);
-        return yzTrades;
     }
+
+    /**
+     * 通过有赞订单获取计划在京东购买的商品和数量
+     *
+     * @param yzTrade 有赞订单
+     */
+    @Override
+    public List<SkuNum> getSkuIdAndNum(YzTrade yzTrade) {
+        List<YzOrder> yzOrderList = yzTrade.getOrders();
+        return yzOrderList
+                .stream()
+                .map(p -> new SkuNum(yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()).getSkuId(), p.getOrderNum()))
+                .filter(p -> p.getSkuId() != null)
+                .collect(toList());
+    }
+
 
 }
