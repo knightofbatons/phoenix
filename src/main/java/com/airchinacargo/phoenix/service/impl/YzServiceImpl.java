@@ -144,9 +144,37 @@ public class YzServiceImpl implements IYzService {
     }
 
     /**
+     * 根据订单号查询订单详细
+     *
+     * @param accessToken 读到的有赞授权 token
+     * @param tid         有赞订单号
+     * @return YzTrade  有赞订单信息
+     */
+    @Override
+    public YzTrade getYzTreadByTid(String accessToken, String tid) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.trade/3.0.0/get")
+                    .header("accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .queryString("fields", FIELDS)
+                    .queryString("tid", tid)
+                    .queryString("access_token", accessToken)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        String tread = response.getBody().getObject().getJSONObject("response").getJSONObject("trade").toString();
+        Gson gson = new Gson();
+        return gson.fromJson(tread, new TypeToken<YzTrade>() {
+        }.getType());
+    }
+
+    /**
      * 通过有赞订单获取计划在京东购买的商品和数量
      *
-     * @param yzTrade 有赞订单
+     * @param yzTrade 单个有赞订单
+     * @return List<SkuNum> 返回期望在京东购买的 skuId 和 num 列表
      */
     @Override
     public List<SkuNum> getSkuIdAndNum(YzTrade yzTrade) {
@@ -156,6 +184,62 @@ public class YzServiceImpl implements IYzService {
                 .map(p -> new SkuNum(yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()).getSkuId(), p.getOrderNum()))
                 .filter(p -> p.getSkuId() != null)
                 .collect(toList());
+    }
+
+    /**
+     * 有赞系统发货需要的参数
+     * <p>
+     * JD_EXPRESS 有赞系统内代表京东快递的编号
+     */
+    private final String JD_EXPRESS = "138";
+
+    /**
+     * 发货
+     *
+     * @param accessToken 读到的有赞授权 token
+     * @param tid         有赞订单 id
+     * @param jdOrderId   京东订单 id
+     * @param oidList     这个京东订单下的有赞子订单 用于分单发货
+     */
+    @Override
+    public void confirm(String accessToken, String tid, String jdOrderId, String oidList) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.logistics.online/3.0.0/confirm")
+                    .queryString("oids", oidList)
+                    .queryString("out_sid", jdOrderId)
+                    .queryString("out_stype", JD_EXPRESS)
+                    .queryString("outer_tid", jdOrderId)
+                    .queryString("tid", tid)
+                    .queryString("access_token", accessToken)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
+
+    /**
+     * 无物流发货
+     *
+     * @param accessToken 读到的有赞授权 token
+     * @param tid         有赞订单 id
+     * @param jdOrderId   京东订单 id
+     */
+    @Override
+    public void confirmNoExpress(String accessToken, String tid, String jdOrderId) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.logistics.online/3.0.0/confirm")
+                    .queryString("is_no_express", 1)
+                    .queryString("outer_tid", jdOrderId)
+                    .queryString("tid", tid)
+                    .queryString("access_token", accessToken)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info("[ confirmNoExpress ]" + response.getBody().toString());
     }
 
 

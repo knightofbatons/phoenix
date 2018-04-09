@@ -1,9 +1,6 @@
 package com.airchinacargo.phoenix.service.impl;
 
-import com.airchinacargo.phoenix.domain.entity.SkuNum;
-import com.airchinacargo.phoenix.domain.entity.SkuReplace;
-import com.airchinacargo.phoenix.domain.entity.Token;
-import com.airchinacargo.phoenix.domain.entity.YzTrade;
+import com.airchinacargo.phoenix.domain.entity.*;
 import com.airchinacargo.phoenix.domain.repository.ISkuReplaceRepository;
 import com.airchinacargo.phoenix.domain.repository.ITokenRepository;
 import com.airchinacargo.phoenix.service.interfaces.IJdService;
@@ -137,7 +134,7 @@ public class JdServiceImpl implements IJdService {
     }
 
     /**
-     * 判断 token 是不是今天的 用来防止定时任务出错后的停摆 或者作为备用方案完全替代定时任务来刷新 token
+     * 判断 token 是不是今天的
      *
      * @param date 待测日期
      * @return boolean 是否是同一天
@@ -149,11 +146,6 @@ public class JdServiceImpl implements IJdService {
         String anotherDay = simpleDateFormat.format(date);
         return today.equals(anotherDay);
     }
-
-    /**
-     * 错误时返回的字符串
-     */
-    private final String FALSE = "false";
 
     /**
      * 用 refresh token 刷新 access token 计划添加在定时任务中每天刷新 刷新失败就重新请求
@@ -174,8 +166,8 @@ public class JdServiceImpl implements IJdService {
             e.printStackTrace();
         }
         // 检查刷新是否成功 未成功就调用请求函数
-        String isSuccess = response.getBody().getObject().get("success").toString();
-        if (FALSE.equals(isSuccess)) {
+        boolean isSuccess = response.getBody().getObject().getBoolean("success");
+        if (!isSuccess) {
             logger.info("[ refreshJdToken ] --> refresh failed run getJdToken to get a new one");
             return getJdToken();
         }
@@ -210,20 +202,77 @@ public class JdServiceImpl implements IJdService {
             e.printStackTrace();
         }
         // 判断获取地址是否成功
-        String isSuccess = response.getBody().getObject().get("success").toString();
-        if (FALSE.equals(isSuccess)) {
-            //TODO 获取地址不成功的情况之后需要考虑
-            return null;
+        boolean isSuccess = response.getBody().getObject().getBoolean("success");
+        if (!isSuccess) {
+            // 不行就百度根据详细获取经纬度 再京东根据经纬度获取地址编码
+            response = getJDAddressFromLatLng(accessToken, getLatLngFromAddress(address));
+            logger.info("[ getJdAddressFromAddress ] --> getJdAddressFromLatLng " + response.getBody());
         }
         // 成功的情况正常获取
         Map<String, Integer> addressMap = new HashMap<>(4);
         JSONObject addressObject = response.getBody().getObject().getJSONObject("result");
         addressMap.put("province", addressObject.getInt("provinceId"));
         addressMap.put("city", addressObject.getInt("cityId"));
-        addressMap.put("county", addressObject.getInt("countyId"));
-        // 京东地址有可能不存在第四级地址
+        // 京东地址有可能不存在第三四级地址
+        addressMap.put("county", addressObject.getString("countyId").isEmpty() ? 0 : addressObject.getInt("countyId"));
         addressMap.put("town", addressObject.getString("townId").isEmpty() ? 0 : addressObject.getInt("townId"));
         return addressMap;
+    }
+
+    /**
+     * 根据经纬度查询京东地址编码
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param latLngMap   经纬度
+     * @return HttpResponse<JsonNode> HTTP 请求返回的结果
+     */
+    @Override
+    public HttpResponse<JsonNode> getJDAddressFromLatLng(String accessToken, Map<String, Double> latLngMap) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/area/getJDAddressFromLatLng")
+                    .queryString("token", accessToken)
+                    .queryString("lng", latLngMap.get("lng"))
+                    .queryString("lat", latLngMap.get("lat"))
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        return response;
+    }
+
+    /**
+     * 使用百度地图开放平台 API 需要的参数 从配置文件读取
+     * <p>
+     * bdKey 百度密钥
+     */
+    @Value("${Bd.KEY}")
+    private String bdKey;
+
+    /**
+     * 根据详细地址获取经纬度 使用百度 api
+     *
+     * @param address 详细地址
+     * @return Map 目标地址经纬度
+     */
+    @Override
+    public Map<String, Double> getLatLngFromAddress(String address) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.get("http://api.map.baidu.com/geocoder/v2/")
+                    .queryString("ak", bdKey)
+                    .queryString("output", "json")
+                    .queryString("address", address)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+        JSONObject latLngObject = response.getBody().getObject().getJSONObject("result").getJSONObject("location");
+        Map<String, Double> latLngMap = new HashMap<>(2);
+        latLngMap.put("lat", latLngObject.getDouble("lat"));
+        latLngMap.put("lng", latLngObject.getDouble("lng"));
+        return latLngMap;
     }
 
 
@@ -240,7 +289,6 @@ public class JdServiceImpl implements IJdService {
     private final static int OUT_OF_STOCK = 34;
     private final static int RESERVE = 36;
 
-
     /**
      * 用于下单时先行检查区域库存
      *
@@ -254,7 +302,7 @@ public class JdServiceImpl implements IJdService {
     public List<String> getNewStockBySkuIdAndArea(String accessToken, List<SkuNum> skuNum, String area, Boolean searchForOutOfStock) {
         HttpResponse<JsonNode> response = null;
         try {
-            response = Unirest.post("https://bizapi.jd.com/ api/stock/getNewStockById")
+            response = Unirest.post("https://bizapi.jd.com/api/stock/getNewStockById")
                     .queryString("token", accessToken)
                     .queryString("skuNums", skuNum.toString())
                     .queryString("area", area)
@@ -296,11 +344,11 @@ public class JdServiceImpl implements IJdService {
         List<String> needToReplaceSkuIdList = getNewStockBySkuIdAndArea(accessToken, skuNum, area, true);
         logger.info("[ getNeedToBuy ] --> 缺货的 " + needToReplaceSkuIdList.toString());
         for (SkuNum s : skuNum) {
-            // 如果缺货
+            // 如果当前商品缺货
             if (needToReplaceSkuIdList.contains(s.getSkuId())) {
-                // 查出缺货的替代列表
+                // 查出当前缺货商品的可替代列表
                 List<SkuReplace> skuReplaceList = skuReplaceRepository.findByBeforeSkuAndBeforeNum(s.getSkuId(), s.getNum());
-                // 查出替代货品有货列表
+                // 查出可替代货品的有货列表
                 List<SkuNum> skuNumList = skuReplaceList.stream()
                         .map(p -> new SkuNum(p.getAfterSku(), p.getAfterNum()))
                         .collect(Collectors.toList());
@@ -335,9 +383,10 @@ public class JdServiceImpl implements IJdService {
      * @param yzTrade     有赞订单
      * @param skuNum      商品和数量等 [{"skuId": 商 品 编 号 , "num": 商 品 数 量 ,"bNeedAnnex":true,"bNeedGift":true, "price":100, "yanbao":[{"skuId": 商品编号}]}]
      * @param area        京东四级地址的编码
+     * @return SysTrade 需要被记录的已处理订单信息
      */
     @Override
-    public void submitOrder(String accessToken, YzTrade yzTrade, List<SkuNum> skuNum, Map<String, Integer> area) {
+    public SysTrade submitOrder(String accessToken, YzTrade yzTrade, List<SkuNum> skuNum, Map<String, Integer> area) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/order/submitOrder")
@@ -363,13 +412,142 @@ public class JdServiceImpl implements IJdService {
                     // 增值税发票只能选择 明细
                     .queryString("invoiceContent", 1)
                     // 支付方式 余额支付
-                    .queryString("paymentType", 4)
+                    .queryString("paymentType", 1)
                     // 余额支付方式 固定选择使用余额
-                    .queryString("isUseBalance", 1)
+                    .queryString("isUseBalance", 4)
                     // 不预占库存
                     .queryString("submitState", 1)
                     // 不做价格对比
                     .queryString("doOrderPriceMode", 0)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        // 检查下单是否成功
+        JSONObject reJsonObject = response.getBody().getObject();
+        Boolean isSuccess = reJsonObject.getBoolean("success");
+        String resultMessage = reJsonObject.getString("resultMessage");
+        // 如果下单失败
+        if (!isSuccess) {
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0, false);
+        }
+        // 否则下单成功
+        JSONObject result = reJsonObject.getJSONObject("result");
+        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true);
+    }
+
+    /**
+     * 根据第三方订单号进行订单反查
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param thirdOrder  客户系统订单号 这里是有赞 tid
+     */
+    @Override
+    public void selectJdOrderIdByThirdOrder(String accessToken, String thirdOrder) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/order/selectJdOrderIdByThirdOrder")
+                    .queryString("token", accessToken)
+                    .queryString("thirdOrder", thirdOrder)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
+
+    /**
+     * 查询京东订单信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param jdOrderId   京东订单号
+     */
+    @Override
+    public void selectJdOrder(String accessToken, String jdOrderId) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/order/selectJdOrder")
+                    .queryString("token", accessToken)
+                    .queryString("jdOrderId", jdOrderId)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
+
+    /**
+     * 查询子订单配送信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param jdOrderId   京东订单号
+     */
+    @Override
+    public void orderTrack(String accessToken, String jdOrderId) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/order/orderTrack")
+                    .queryString("token", accessToken)
+                    .queryString("jdOrderId", jdOrderId)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
+
+    /**
+     * 统一余额查询
+     *
+     * @param accessToken 授权时获取的 access token
+     */
+    @Override
+    public void getBalance(String accessToken) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/price/getBalance")
+                    .queryString("token", accessToken)
+                    .queryString("payType", 4)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
+
+    /**
+     * 批量查询商品价格
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param skuList     商品编号，请以，(英文逗号)分割(最高支持 100 个商品)。例如：129408,129409
+     */
+    @Override
+    public void getSellPrice(String accessToken, String skuList) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/price/getSellPrice")
+                    .queryString("token", accessToken)
+                    .queryString("sku", skuList)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
+
+    /**
+     * 取消订单
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param jdOrderId   京东的订单单号（父订单号）
+     */
+    @Override
+    public void cancel(String accessToken, String jdOrderId) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/order/cancel\n")
+                    .queryString("token", accessToken)
+                    .queryString("jdOrderId", jdOrderId)
                     .asJson();
         } catch (UnirestException e) {
             e.printStackTrace();
