@@ -20,8 +20,8 @@ public class YzToJd {
     private String itemId;
     @Column(name = "sku_id")
     private String skuId;
-    @Column(name = "name")
-    private String name;
+    @Column(name = "num")
+    private int num;
 
     public int getId() {
         return id;
@@ -47,11 +47,11 @@ public class YzToJd {
         this.skuId = skuId;
     }
 
-    public String getName() {
-        return name;
+    public int getNum() {
+        return num;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setNum(int num) {
+        this.num = num;
     }
 }

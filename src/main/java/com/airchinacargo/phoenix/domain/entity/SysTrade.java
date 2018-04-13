@@ -25,17 +25,36 @@ public class SysTrade {
     @Column(name = "result_message")
     private String resultMessage;
     @Column(name = "price")
-    private Double price;
-    @Column(name = "is_success")
-    private Boolean isSuccess;
+    private double price;
+    @Column(name = "success")
+    private boolean success;
+    @Column(name = "confirm")
+    private boolean confirm;
+    @Column(name = "receiver_name")
+    private String receiverName;
+    @Column(name = "receiver_mobile")
+    private String receiverMobile;
+    @Column(name = "receiver_address")
+    private String receiverAddress;
 
-    public SysTrade(String tid, String jdOrderId, Date dueDate, String resultMessage, double price, Boolean isSuccess) {
+
+    /**
+     * Hibernate 需要一个无参构造函数 避免错误 No default constructor for entity
+     */
+    public SysTrade() {
+    }
+
+    public SysTrade(String tid, String jdOrderId, Date dueDate, String resultMessage, double price, boolean success, boolean confirm, String receiverName, String receiverMobile, String receiverAddress) {
         this.tid = tid;
         this.jdOrderId = jdOrderId;
         this.dueDate = dueDate;
         this.resultMessage = resultMessage;
         this.price = price;
-        this.isSuccess = isSuccess;
+        this.success = success;
+        this.confirm = confirm;
+        this.receiverName = receiverName;
+        this.receiverMobile = receiverMobile;
+        this.receiverAddress = receiverAddress;
     }
 
     public int getId() {
@@ -86,12 +105,44 @@ public class SysTrade {
         this.price = price;
     }
 
-    public Boolean getSuccess() {
-        return isSuccess;
+    public boolean isSuccess() {
+        return success;
     }
 
-    public void setSuccess(Boolean success) {
-        isSuccess = success;
+    public void setSuccess(boolean success) {
+        this.success = success;
+    }
+
+    public boolean isConfirm() {
+        return confirm;
+    }
+
+    public void setConfirm(boolean confirm) {
+        this.confirm = confirm;
+    }
+
+    public String getReceiverName() {
+        return receiverName;
+    }
+
+    public void setReceiverName(String receiverName) {
+        this.receiverName = receiverName;
+    }
+
+    public String getReceiverMobile() {
+        return receiverMobile;
+    }
+
+    public void setReceiverMobile(String receiverMobile) {
+        this.receiverMobile = receiverMobile;
+    }
+
+    public String getReceiverAddress() {
+        return receiverAddress;
+    }
+
+    public void setReceiverAddress(String receiverAddress) {
+        this.receiverAddress = receiverAddress;
     }
 
     @Override
@@ -103,7 +154,11 @@ public class SysTrade {
                 ", dueDate=" + dueDate +
                 ", resultMessage='" + resultMessage + '\'' +
                 ", price=" + price +
-                ", isSuccess=" + isSuccess +
+                ", success=" + success +
+                ", confirm=" + confirm +
+                ", receiverName='" + receiverName + '\'' +
+                ", receiverMobile='" + receiverMobile + '\'' +
+                ", receiverAddress='" + receiverAddress + '\'' +
                 '}';
     }
 }

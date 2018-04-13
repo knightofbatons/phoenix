@@ -75,10 +75,10 @@ public class YzServiceImpl implements IYzService {
         try {
             tokenRepository.deleteById(YZ);
         } catch (Exception e) {
-            logger.info("[ getYzToken ] --> never have Yz token before");
+            logger.info("[ getYzToken ] --> never have YZ token before");
         }
         tokenRepository.save(yzToken);
-        logger.info("[ getYzToken ] --> get new token");
+        logger.info("[ getYzToken ] --> get new YZ token");
         return yzToken;
     }
 
@@ -164,10 +164,14 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        String tread = response.getBody().getObject().getJSONObject("response").getJSONObject("trade").toString();
-        Gson gson = new Gson();
-        return gson.fromJson(tread, new TypeToken<YzTrade>() {
-        }.getType());
+        try {
+            String tread = response.getBody().getObject().getJSONObject("response").getJSONObject("trade").toString();
+            Gson gson = new Gson();
+            return gson.fromJson(tread, new TypeToken<YzTrade>() {
+            }.getType());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -181,8 +185,9 @@ public class YzServiceImpl implements IYzService {
         List<YzOrder> yzOrderList = yzTrade.getOrders();
         return yzOrderList
                 .stream()
-                .map(p -> new SkuNum(yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()).getSkuId(), p.getOrderNum()))
+                .map(p -> yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()))
                 .filter(p -> p.getSkuId() != null)
+                .map(p -> new SkuNum(p.getSkuId(), p.getNum()))
                 .collect(toList());
     }
 
@@ -194,7 +199,7 @@ public class YzServiceImpl implements IYzService {
     private final String JD_EXPRESS = "138";
 
     /**
-     * 发货
+     * 拆单发货
      *
      * @param accessToken 读到的有赞授权 token
      * @param tid         有赞订单 id
@@ -216,7 +221,31 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info(response.getBody().toString());
+        logger.info("[ confirm ] --> " + response.getBody().toString());
+    }
+
+    /**
+     * 不拆单发货
+     *
+     * @param accessToken 读到的有赞授权 token
+     * @param tid         有赞订单 id
+     * @param jdOrderId   京东订单 id
+     */
+    @Override
+    public void confirmNoSplit(String accessToken, String tid, String jdOrderId) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.logistics.online/3.0.0/confirm")
+                    .queryString("out_sid", jdOrderId)
+                    .queryString("out_stype", JD_EXPRESS)
+                    .queryString("outer_tid", jdOrderId)
+                    .queryString("tid", tid)
+                    .queryString("access_token", accessToken)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info("[ confirmNoSplit ] --> " + response.getBody().toString());
     }
 
     /**
@@ -239,7 +268,7 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info("[ confirmNoExpress ]" + response.getBody().toString());
+        logger.info("[ confirmNoExpress ] --> " + response.getBody().toString());
     }
 
 

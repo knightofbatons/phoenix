@@ -53,7 +53,7 @@ public interface IYzService {
 
 
     /**
-     * 发货
+     * 拆单发货
      *
      * @param accessToken 读到的有赞授权 token
      * @param tid         有赞订单 id
@@ -61,6 +61,16 @@ public interface IYzService {
      * @param oidList     这个京东订单下的有赞子订单 用于分单发货
      */
     void confirm(String accessToken, String tid, String jdOrderId, String oidList);
+
+
+    /**
+     * 不拆单发货
+     *
+     * @param accessToken 读到的有赞授权 token
+     * @param tid         有赞订单 id
+     * @param jdOrderId   京东订单 id
+     */
+    void confirmNoSplit(String accessToken, String tid, String jdOrderId);
 
     /**
      * 无物流发货

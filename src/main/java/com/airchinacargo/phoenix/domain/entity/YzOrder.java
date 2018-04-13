@@ -12,7 +12,7 @@ public class YzOrder {
     private int orderNum;
     private String oid;
     private String title;
-    @SerializedName("item_id")
+    @SerializedName("outer_item_id")
     private String itemId;
     @SerializedName("sku_id")
     private String skuId;

@@ -6,6 +6,7 @@ import com.airchinacargo.phoenix.domain.entity.Token;
 import com.airchinacargo.phoenix.domain.entity.YzTrade;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
+import org.json.JSONObject;
 
 import java.util.List;
 import java.util.Map;
@@ -72,7 +73,7 @@ public interface IJdService {
      * @param searchForOutOfStock 是否是查询缺货，不是的话就是查询有货的
      * @return List<String> 返回缺货列表
      */
-    List<String> getNewStockBySkuIdAndArea(String accessToken, List<SkuNum> skuNum, String area, Boolean searchForOutOfStock);
+    List<String> getNewStockBySkuIdAndArea(String accessToken, List<SkuNum> skuNum, String area, boolean searchForOutOfStock);
 
     /**
      * 替换缺货商品
@@ -108,16 +109,18 @@ public interface IJdService {
      *
      * @param accessToken 授权时获取的 access token
      * @param jdOrderId   京东订单号
+     * @return JSONObject HTTP 请求返回的结果
      */
-    void selectJdOrder(String accessToken, String jdOrderId);
+    JSONObject selectJdOrder(String accessToken, String jdOrderId);
 
     /**
      * 查询子订单配送信息
      *
      * @param accessToken 授权时获取的 access token
      * @param jdOrderId   京东订单号
+     * @return JSONObject HTTP 请求返回的结果
      */
-    void orderTrack(String accessToken, String jdOrderId);
+    JSONObject orderTrack(String accessToken, String jdOrderId);
 
     /**
      * 统一余额查询

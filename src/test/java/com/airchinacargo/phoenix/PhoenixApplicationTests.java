@@ -54,7 +54,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getYzTreadByTidTest() {
-        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180313084627051900006").toString());
+        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180413095329023500011").toString());
     }
 
     /**
@@ -64,9 +64,8 @@ public class PhoenixApplicationTests {
     public void getSkuIdAndNumTest() {
         YzTrade yzTrade = new YzTrade();
         List<YzOrder> yzOrderList = Arrays.asList(
-                new YzOrder(1, "1", "1", "410875958", "1"),
-                new YzOrder(1, "2", "2", "410875960", "2"),
-                new YzOrder(1, "3", "3", "410876553", "3")
+                new YzOrder(1, "1", "1", "3503652", "1"),
+                new YzOrder(1, "2", "2", "302010", "2")
         );
         yzTrade.setOrders(yzOrderList);
         logger.info(yzService.getSkuIdAndNum(yzTrade).toString());
@@ -111,7 +110,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getJdAddressFromAddressTest() {
-        logger.info(String.valueOf(jdService.getJdAddressFromAddress("天津市天津市宁河区", jdService.readJdToken().getAccessToken())));
+        logger.info(String.valueOf(jdService.getJdAddressFromAddress("河北省石家庄市桥东区跃进路12号河北医科大学宿舍", jdService.readJdToken().getAccessToken())));
     }
 
     /**
@@ -213,7 +212,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void selectJdOrderTest() {
-        jdService.selectJdOrder(jdService.readJdToken().getAccessToken(), "72832037950");
+        logger.info(jdService.selectJdOrder(jdService.readJdToken().getAccessToken(), "72970913840").toString());
     }
 
     /**
@@ -221,12 +220,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void orderTrackTest() {
-        // 父
-        jdService.orderTrack(jdService.readJdToken().getAccessToken(), "72832037950");
-        // 子
-        jdService.orderTrack(jdService.readJdToken().getAccessToken(), "72832193682");
-        jdService.orderTrack(jdService.readJdToken().getAccessToken(), "72832306454");
-        jdService.orderTrack(jdService.readJdToken().getAccessToken(), "72825844185");
+        logger.info(jdService.orderTrack(jdService.readJdToken().getAccessToken(), "73958987811").toString());
     }
 
     /**
@@ -245,7 +239,6 @@ public class PhoenixApplicationTests {
         jdService.getSellPrice(jdService.readJdToken().getAccessToken(), "4202088");
     }
 
-
     /**
      * 测试京东取消订单（基本取消不了）
      */
@@ -253,4 +246,5 @@ public class PhoenixApplicationTests {
     public void cancelTest() {
         jdService.cancel(jdService.readJdToken().getAccessToken(), "72832037950");
     }
+
 }

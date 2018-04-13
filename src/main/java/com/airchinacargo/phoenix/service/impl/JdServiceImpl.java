@@ -125,11 +125,11 @@ public class JdServiceImpl implements IJdService {
         Token yzToken = tokenRepository.findById(JD).orElseGet(this::getJdToken);
         // 是当天的直接返回
         if (isToday(yzToken.getDate())) {
-            logger.info("[ readJdToken ] --> return today token");
+            logger.info("[ readJdToken ] --> return today JD token");
             return yzToken;
         }
         // 不是当天的调用刷新函数
-        logger.info("[ readJdToken ] --> refresh token");
+        logger.info("[ readJdToken ] --> refresh JD token");
         return refreshJdToken(yzToken.getRefreshToken());
     }
 
@@ -206,7 +206,7 @@ public class JdServiceImpl implements IJdService {
         if (!isSuccess) {
             // 不行就百度根据详细获取经纬度 再京东根据经纬度获取地址编码
             response = getJDAddressFromLatLng(accessToken, getLatLngFromAddress(address));
-            logger.info("[ getJdAddressFromAddress ] --> getJdAddressFromLatLng " + response.getBody());
+            logger.info("[ getJdAddressFromAddress ] --> getJdAddressFromLatLng " + address);
         }
         // 成功的情况正常获取
         Map<String, Integer> addressMap = new HashMap<>(4);
@@ -216,6 +216,7 @@ public class JdServiceImpl implements IJdService {
         // 京东地址有可能不存在第三四级地址
         addressMap.put("county", addressObject.getString("countyId").isEmpty() ? 0 : addressObject.getInt("countyId"));
         addressMap.put("town", addressObject.getString("townId").isEmpty() ? 0 : addressObject.getInt("townId"));
+        logger.info("[ getJdAddressFromAddress ] --> " + address + " --> " + response.getBody());
         return addressMap;
     }
 
@@ -267,7 +268,6 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info(response.getBody().toString());
         JSONObject latLngObject = response.getBody().getObject().getJSONObject("result").getJSONObject("location");
         Map<String, Double> latLngMap = new HashMap<>(2);
         latLngMap.put("lat", latLngObject.getDouble("lat"));
@@ -299,7 +299,7 @@ public class JdServiceImpl implements IJdService {
      * @return List<String> 根据参数选择返回缺货列表或有货列表
      */
     @Override
-    public List<String> getNewStockBySkuIdAndArea(String accessToken, List<SkuNum> skuNum, String area, Boolean searchForOutOfStock) {
+    public List<String> getNewStockBySkuIdAndArea(String accessToken, List<SkuNum> skuNum, String area, boolean searchForOutOfStock) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/stock/getNewStockById")
@@ -353,6 +353,10 @@ public class JdServiceImpl implements IJdService {
                         .map(p -> new SkuNum(p.getAfterSku(), p.getAfterNum()))
                         .collect(Collectors.toList());
                 List<String> couldBeBuySkuIdList = getNewStockBySkuIdAndArea(accessToken, skuNumList, area, false);
+                // 如果这个缺货商品的可替代货品全部缺货 那么停止并返回 null
+                if (0 == couldBeBuySkuIdList.size()) {
+                    return null;
+                }
                 // 用替代列表里有货的把之前缺货的换了 有多个有货 第一个是谁算谁
                 for (SkuReplace sr : skuReplaceList) {
                     if (couldBeBuySkuIdList.contains(sr.getAfterSku())) {
@@ -387,6 +391,11 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public SysTrade submitOrder(String accessToken, YzTrade yzTrade, List<SkuNum> skuNum, Map<String, Integer> area) {
+        String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
+        // 判断是不是有缺货商品的所有可替代都缺货
+        if (null == skuNum) {
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
+        }
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/order/submitOrder")
@@ -412,9 +421,9 @@ public class JdServiceImpl implements IJdService {
                     // 增值税发票只能选择 明细
                     .queryString("invoiceContent", 1)
                     // 支付方式 余额支付
-                    .queryString("paymentType", 1)
+                    .queryString("paymentType", 4)
                     // 余额支付方式 固定选择使用余额
-                    .queryString("isUseBalance", 4)
+                    .queryString("isUseBalance", 1)
                     // 不预占库存
                     .queryString("submitState", 1)
                     // 不做价格对比
@@ -423,17 +432,18 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
+        logger.info(response.getBody().toString());
         // 检查下单是否成功
         JSONObject reJsonObject = response.getBody().getObject();
-        Boolean isSuccess = reJsonObject.getBoolean("success");
+        boolean isSuccess = reJsonObject.getBoolean("success");
         String resultMessage = reJsonObject.getString("resultMessage");
         // 如果下单失败
         if (!isSuccess) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0, false);
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
         }
-        // 否则下单成功
+        // 下单成功
         JSONObject result = reJsonObject.getJSONObject("result");
-        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true);
+        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
     }
 
     /**
@@ -461,9 +471,10 @@ public class JdServiceImpl implements IJdService {
      *
      * @param accessToken 授权时获取的 access token
      * @param jdOrderId   京东订单号
+     * @return JSONObject HTTP 请求返回的结果
      */
     @Override
-    public void selectJdOrder(String accessToken, String jdOrderId) {
+    public JSONObject selectJdOrder(String accessToken, String jdOrderId) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/order/selectJdOrder")
@@ -473,7 +484,7 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info(response.getBody().toString());
+        return response.getBody().getObject();
     }
 
     /**
@@ -481,9 +492,10 @@ public class JdServiceImpl implements IJdService {
      *
      * @param accessToken 授权时获取的 access token
      * @param jdOrderId   京东订单号
+     * @return JSONObject HTTP 请求返回的结果
      */
     @Override
-    public void orderTrack(String accessToken, String jdOrderId) {
+    public JSONObject orderTrack(String accessToken, String jdOrderId) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/order/orderTrack")
@@ -493,7 +505,7 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info(response.getBody().toString());
+        return response.getBody().getObject();
     }
 
     /**
