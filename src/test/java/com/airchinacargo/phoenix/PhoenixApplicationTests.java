@@ -15,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -54,7 +55,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getYzTreadByTidTest() {
-        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180413095329023500011").toString());
+        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180418092733023600010").toString());
     }
 
     /**
@@ -110,7 +111,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getJdAddressFromAddressTest() {
-        logger.info(String.valueOf(jdService.getJdAddressFromAddress("河北省石家庄市桥东区跃进路12号河北医科大学宿舍", jdService.readJdToken().getAccessToken())));
+        logger.info(String.valueOf(jdService.getJdAddressFromAddress("黑龙江省七台河市桃山区黑龙江省七台河市桃山区自取-2-202", jdService.readJdToken().getAccessToken())));
     }
 
     /**
@@ -118,7 +119,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getLatLngFromAddressTest() {
-        jdService.getLatLngFromAddress("河北省石家庄市桥东区跃进路12号河北医科大学宿舍");
+        jdService.getLatLngFromAddress("天津市天津市蓟州区人民东路 步行街正对的张庄胡同内100米 鱼里女装");
     }
 
     /**
@@ -126,53 +127,10 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getJDAddressFromLatLngTest() {
-        logger.info(jdService.getJDAddressFromLatLng(jdService.readJdToken().getAccessToken(), jdService.getLatLngFromAddress("河北省石家庄市桥东区跃进路12号河北医科大学宿舍")).getBody().toString());
-    }
-
-    /**
-     * 测试京东查询区域库存
-     */
-    @Test
-    public void getNewStockBySkuIdAndAreaTest() {
-        YzTrade yzTrade = new YzTrade();
-
-        List<YzOrder> yzOrderList = Arrays.asList(
-                new YzOrder(1, "1", "1", "410875958", "1"),
-                new YzOrder(1, "2", "2", "410875960", "2"),
-                new YzOrder(10, "3", "3", "410876553", "3")
-        );
-
-        yzTrade.setOrders(yzOrderList);
-
-
-        String accessToken = jdService.readJdToken().getAccessToken();
-        Map<String, Integer> addressMap = jdService.getJdAddressFromAddress("北京市顺义区天竺空港经济开发区天柱路29号", accessToken);
-        String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
-        // 查有货
-        logger.info(jdService.getNewStockBySkuIdAndArea(accessToken, yzService.getSkuIdAndNum(yzTrade), area, false).toString());
-        // 查无货
-        logger.info(jdService.getNewStockBySkuIdAndArea(accessToken, yzService.getSkuIdAndNum(yzTrade), area, true).toString());
-    }
-
-    /**
-     * 测试获取真正要买的商品
-     */
-    @Test
-    public void getNeedToBuyTest() {
-        YzTrade yzTrade = new YzTrade();
-        List<YzOrder> yzOrderList = Arrays.asList(
-                new YzOrder(1, "1", "1", "410875958", "1"),
-                new YzOrder(1, "2", "2", "410875960", "2"),
-                new YzOrder(10, "3", "3", "410876553", "3")
-        );
-        yzTrade.setOrders(yzOrderList);
-
-        String accessToken = jdService.readJdToken().getAccessToken();
-        Map<String, Integer> addressMap = jdService.getJdAddressFromAddress("北京市顺义区天竺空港经济开发区天柱路29号", accessToken);
-        String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
-        List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
-        List<SkuNum> realSkuNum = jdService.getNeedToBuy(accessToken, planSkuNum, area);
-        logger.info(realSkuNum.toString());
+        Map<String, Double> map = new HashMap<>(2);
+        map.put("lng", 114.54258178082);
+        map.put("lat", 38.054369105989);
+        logger.info(jdService.getJDAddressFromLatLng(jdService.readJdToken().getAccessToken(), map).getBody().toString());
     }
 
     /**
@@ -220,7 +178,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void orderTrackTest() {
-        logger.info(jdService.orderTrack(jdService.readJdToken().getAccessToken(), "73958987811").toString());
+        logger.info(jdService.orderTrack(jdService.readJdToken().getAccessToken(), "73958856001").toString());
     }
 
     /**
@@ -228,7 +186,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getBalanceTest() {
-        jdService.getBalance(jdService.readJdToken().getAccessToken());
+        logger.info(jdService.getBalance(jdService.readJdToken().getAccessToken()));
     }
 
     /**
@@ -237,14 +195,6 @@ public class PhoenixApplicationTests {
     @Test
     public void getSellPriceTest() {
         jdService.getSellPrice(jdService.readJdToken().getAccessToken(), "4202088");
-    }
-
-    /**
-     * 测试京东取消订单（基本取消不了）
-     */
-    @Test
-    public void cancelTest() {
-        jdService.cancel(jdService.readJdToken().getAccessToken(), "72832037950");
     }
 
 }

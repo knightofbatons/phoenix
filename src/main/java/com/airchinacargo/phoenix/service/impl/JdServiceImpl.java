@@ -125,7 +125,6 @@ public class JdServiceImpl implements IJdService {
         Token yzToken = tokenRepository.findById(JD).orElseGet(this::getJdToken);
         // 是当天的直接返回
         if (isToday(yzToken.getDate())) {
-            logger.info("[ readJdToken ] --> return today JD token");
             return yzToken;
         }
         // 不是当天的调用刷新函数
@@ -206,7 +205,7 @@ public class JdServiceImpl implements IJdService {
         if (!isSuccess) {
             // 不行就百度根据详细获取经纬度 再京东根据经纬度获取地址编码
             response = getJDAddressFromLatLng(accessToken, getLatLngFromAddress(address));
-            logger.info("[ getJdAddressFromAddress ] --> getJdAddressFromLatLng " + address);
+            logger.info("[ getJdAddressFromAddress ] --> [ getJdAddressFromLatLng ]");
         }
         // 成功的情况正常获取
         Map<String, Integer> addressMap = new HashMap<>(4);
@@ -376,9 +375,11 @@ public class JdServiceImpl implements IJdService {
      * 下单需要的参数
      * <p>
      * email 准备接收物流信息反馈的邮箱
+     * PAYMENT_MAX 最多付款为 20 块邮费
      */
     @Value("${Fh.EMAIL}")
     private String email;
+    private final Double PAYMENT_MAX = 20.0;
 
     /**
      * 在京东下单
@@ -395,6 +396,10 @@ public class JdServiceImpl implements IJdService {
         // 判断是不是有缺货商品的所有可替代都缺货
         if (null == skuNum) {
             return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
+        }
+        // 判断是不是实际花钱购买的 最多付款
+        if (PAYMENT_MAX < yzTrade.getPayment()) {
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "此订单是实际付款订单", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
         }
         HttpResponse<JsonNode> response = null;
         try {
@@ -480,6 +485,7 @@ public class JdServiceImpl implements IJdService {
             response = Unirest.post("https://bizapi.jd.com/api/order/selectJdOrder")
                     .queryString("token", accessToken)
                     .queryString("jdOrderId", jdOrderId)
+                    .queryString("queryExts", "jdOrderState")
                     .asJson();
         } catch (UnirestException e) {
             e.printStackTrace();
@@ -512,9 +518,10 @@ public class JdServiceImpl implements IJdService {
      * 统一余额查询
      *
      * @param accessToken 授权时获取的 access token
+     * @return String 余额
      */
     @Override
-    public void getBalance(String accessToken) {
+    public String getBalance(String accessToken) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/price/getBalance")
@@ -524,7 +531,7 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info(response.getBody().toString());
+        return response.getBody().getObject().getString("result");
     }
 
     /**

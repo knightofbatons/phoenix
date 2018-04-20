@@ -62,8 +62,8 @@ public class ScheduledTest {
                     // 查询有赞订单详细信息
                     List<YzOrder> yzOrderList = yzService.getYzTreadByTid(yzToken, sysTrade.getTid()).getOrders();
                     // 查询有赞京东商品对应关系 yzToJd 和 替换列表 skuReplace 找到 jdOrderId 下对应的 oid
-                    Gson gson = new Gson();
                     // 获取京东子单列表
+                    Gson gson = new Gson();
                     List<JdOrder> jdOrderList = gson.fromJson(responseObject.getJSONObject("result").get("cOrder").toString(), new TypeToken<List<JdOrder>>() {
                     }.getType());
                     // 遍历子单

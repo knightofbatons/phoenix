@@ -126,8 +126,9 @@ public interface IJdService {
      * 统一余额查询
      *
      * @param accessToken 授权时获取的 access token
+     * @return String 余额
      */
-    void getBalance(String accessToken);
+    String getBalance(String accessToken);
 
     /**
      * 批量查询商品价格

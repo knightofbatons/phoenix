@@ -114,7 +114,7 @@ public class YzServiceImpl implements IYzService {
      * <p>
      * FIELDS 需要的订单信息字段
      */
-    private final String FIELDS = "num,tid,orders,receiver_city,receiver_state,receiver_district,receiver_address,receiver_mobile,receiver_name";
+    private final String FIELDS = "num,tid,payment,orders,receiver_city,receiver_state,receiver_district,receiver_address,receiver_mobile,receiver_name";
 
     /**
      * 获取付款未发货订单
@@ -165,6 +165,7 @@ public class YzServiceImpl implements IYzService {
             e.printStackTrace();
         }
         try {
+            logger.info(response.getBody().toString());
             String tread = response.getBody().getObject().getJSONObject("response").getJSONObject("trade").toString();
             Gson gson = new Gson();
             return gson.fromJson(tread, new TypeToken<YzTrade>() {
