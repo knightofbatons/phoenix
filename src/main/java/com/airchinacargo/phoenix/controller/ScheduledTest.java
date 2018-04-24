@@ -53,7 +53,7 @@ public class ScheduledTest {
         // 如果存在此类订单 给这些订单在有赞平台发货
         if (null != needToConfirmSysTradeList) {
             // 拆单发货
-            logger.info("[ 处理发货 ] --> ");
+            logger.info("[ 开始处理发货 ] --> ");
             for (SysTrade sysTrade : needToConfirmSysTradeList) {
                 // 查询京东订单详细信息
                 JSONObject responseObject = jdService.selectJdOrder(jdToken, sysTrade.getJdOrderId());
@@ -85,12 +85,13 @@ public class ScheduledTest {
                                             .collect(toList()));
                         }
                         // 在有赞物流拆单发货
-                        yzService.confirm(yzToken, sysTrade.getTid(), String.valueOf(jdOrder.getJdOrderId()), StringUtils.stripFrontBack(oidList.toString(), "[", "]").replaceAll(" ", ""));
                         logger.info("[ 分单发货 ] --> " + jdOrder.getJdOrderId() + " : " + oidList.toString());
+                        yzService.confirm(yzToken, sysTrade.getTid(), String.valueOf(jdOrder.getJdOrderId()), StringUtils.stripFrontBack(oidList.toString(), "[", "]").replaceAll(" ", ""));
                     }
                     sysTradeRepository.updateIsConfirm(sysTrade.getTid());
                 } else {
                     // 否则就是京东没有拆单 在有赞直接发货
+                    logger.info("[ 一起发货 ] --> " + sysTrade.getJdOrderId());
                     yzService.confirmNoSplit(yzToken, sysTrade.getTid(), sysTrade.getJdOrderId());
                     sysTradeRepository.updateIsConfirm(sysTrade.getTid());
                 }

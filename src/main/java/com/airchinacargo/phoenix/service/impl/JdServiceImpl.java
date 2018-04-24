@@ -294,7 +294,7 @@ public class JdServiceImpl implements IJdService {
      * @param accessToken         授权时获取的 access token
      * @param skuNum              商品和数量  例如 [{skuId:569172,num:101}]
      * @param area                查询区域 由京东前三级地址编码组成 形如 1_0_0 分别代表 1、2、3 级地址
-     * @param searchForOutOfStock 是否是查询缺货，不是的话就是查询有货的 逻辑为 34 || 36 缺货 !34 && !36 有货
+     * @param searchForOutOfStock 是否是查询缺货，不是的话就是查询有货的 逻辑为 34 || 36 缺货 !34 && !36 有货 / 暂行逻辑为 34 缺货 !34 有货
      * @return List<String> 根据参数选择返回缺货列表或有货列表
      */
     @Override
@@ -314,7 +314,7 @@ public class JdServiceImpl implements IJdService {
         if (searchForOutOfStock) {
             for (int i = 0; i < resultArray.length(); i++) {
                 int stockStateId = resultArray.getJSONObject(i).getInt("stockStateId");
-                if (OUT_OF_STOCK == stockStateId || RESERVE == stockStateId) {
+                if (OUT_OF_STOCK == stockStateId) {
                     goodList.add(String.valueOf(resultArray.getJSONObject(i).getInt("skuId")));
                 }
             }
@@ -322,7 +322,7 @@ public class JdServiceImpl implements IJdService {
         }
         for (int i = 0; i < resultArray.length(); i++) {
             int stockStateId = resultArray.getJSONObject(i).getInt("stockStateId");
-            if (OUT_OF_STOCK != stockStateId && RESERVE != stockStateId) {
+            if (OUT_OF_STOCK != stockStateId) {
                 goodList.add(String.valueOf(resultArray.getJSONObject(i).getInt("skuId")));
             }
         }
@@ -341,7 +341,7 @@ public class JdServiceImpl implements IJdService {
     public List<SkuNum> getNeedToBuy(String accessToken, List<SkuNum> skuNum, String area) {
         // 先查出计划购买中缺货的
         List<String> needToReplaceSkuIdList = getNewStockBySkuIdAndArea(accessToken, skuNum, area, true);
-        logger.info("[ getNeedToBuy ] --> 缺货的 " + needToReplaceSkuIdList.toString());
+        logger.info("[ getNeedToBuy ] --> OutOfStock: " + needToReplaceSkuIdList.toString());
         for (SkuNum s : skuNum) {
             // 如果当前商品缺货
             if (needToReplaceSkuIdList.contains(s.getSkuId())) {
@@ -395,11 +395,11 @@ public class JdServiceImpl implements IJdService {
         String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
         // 判断是不是有缺货商品的所有可替代都缺货
         if (null == skuNum) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
         }
         // 判断是不是实际花钱购买的 最多付款
         if (PAYMENT_MAX < yzTrade.getPayment()) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "此订单是实际付款订单", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "此订单是实际付款订单", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, "NO_COUPONS_USED");
         }
         HttpResponse<JsonNode> response = null;
         try {
@@ -437,18 +437,17 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info(response.getBody().toString());
         // 检查下单是否成功
         JSONObject reJsonObject = response.getBody().getObject();
         boolean isSuccess = reJsonObject.getBoolean("success");
         String resultMessage = reJsonObject.getString("resultMessage");
         // 如果下单失败
         if (!isSuccess) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
         }
         // 下单成功
         JSONObject result = reJsonObject.getJSONObject("result");
-        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address);
+        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
     }
 
     /**
@@ -574,4 +573,44 @@ public class JdServiceImpl implements IJdService {
         logger.info(response.getBody().toString());
     }
 
+    /**
+     * 获取京东信息推送池中的信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param type        推送类型 支持多个 例如 1,2,3
+     * @return JSONObject HTTP 请求返回的结果
+     */
+    @Override
+    public JSONObject messageGet(String accessToken, String type) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/message/get")
+                    .queryString("token", accessToken)
+                    .queryString("type", type)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        return response.getBody().getObject();
+    }
+
+    /**
+     * 删除消息池中信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param id          推送信息 id 支持批量删除，英文逗号间隔，最大 100 个
+     */
+    @Override
+    public void messageDel(String accessToken, String id) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/message/del")
+                    .queryString("token", accessToken)
+                    .queryString("id", id)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().getObject().toString());
+    }
 }

@@ -47,13 +47,14 @@ public interface ISysTradeRepository extends JpaRepository<SysTrade, Integer> {
     Optional<List<SysTrade>> findByReceiverMobile(String receiverMobile);
 
     /**
-     * 根据收货人电话或姓名查询系统订单
+     * 根据收货人电话或姓名或京东订单编号查询系统订单
      *
      * @param receiverMobile 收货人电话
      * @param receiverName   收货人姓名
+     * @param jdOrderId      京东订单编号
      * @return Optional
      */
-    Optional<List<SysTrade>> findByReceiverMobileOrReceiverName(String receiverMobile, String receiverName);
+    Optional<List<SysTrade>> findByReceiverMobileOrReceiverNameOrJdOrderId(String receiverMobile, String receiverName, String jdOrderId);
 
     /**
      * 变更为已发货

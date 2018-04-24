@@ -170,7 +170,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void selectJdOrderTest() {
-        logger.info(jdService.selectJdOrder(jdService.readJdToken().getAccessToken(), "72970913840").toString());
+        logger.info(jdService.selectJdOrder(jdService.readJdToken().getAccessToken(), "73995062475").toString());
     }
 
     /**
@@ -194,7 +194,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getSellPriceTest() {
-        jdService.getSellPrice(jdService.readJdToken().getAccessToken(), "4202088");
+        jdService.getSellPrice(jdService.readJdToken().getAccessToken(), "2950891");
     }
 
 }

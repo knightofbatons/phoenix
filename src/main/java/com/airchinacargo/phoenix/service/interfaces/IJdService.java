@@ -145,4 +145,21 @@ public interface IJdService {
      * @param jdOrderId   京东的订单单号（父订单号）
      */
     void cancel(String accessToken, String jdOrderId);
+
+    /**
+     * 获取京东信息推送池中的信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param type        推送类型 支持多个 例如 1,2,3
+     * @return JSONObject HTTP 请求返回的结果
+     */
+    JSONObject messageGet(String accessToken, String type);
+
+    /**
+     * 删除消息池中信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param id          推送信息 id 支持批量删除，英文逗号间隔，最大 100 个
+     */
+    void messageDel(String accessToken, String id);
 }

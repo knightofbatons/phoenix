@@ -1,6 +1,5 @@
 package com.airchinacargo.phoenix.domain.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.gson.annotations.SerializedName;
 
 import java.util.List;
@@ -27,7 +26,8 @@ public class YzTrade {
     private String receiverMobile;
     @SerializedName("receiver_name")
     private String receiverName;
-    @JsonIgnore
+    @SerializedName("coupon_details")
+    private List<Coupon> coupons;
     private double payment;
 
     public int getTotalNum() {
@@ -110,6 +110,14 @@ public class YzTrade {
         this.payment = payment;
     }
 
+    public List<Coupon> getCoupons() {
+        return coupons;
+    }
+
+    public void setCoupons(List<Coupon> coupons) {
+        this.coupons = coupons;
+    }
+
     @Override
     public String toString() {
         return "YzTrade{" +
@@ -122,6 +130,7 @@ public class YzTrade {
                 ", receiverAddress='" + receiverAddress + '\'' +
                 ", receiverMobile='" + receiverMobile + '\'' +
                 ", receiverName='" + receiverName + '\'' +
+                ", coupons=" + coupons +
                 ", payment=" + payment +
                 '}';
     }

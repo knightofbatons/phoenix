@@ -1,5 +1,7 @@
 package com.airchinacargo.phoenix.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import javax.persistence.*;
 import java.util.Date;
 
@@ -21,6 +23,7 @@ public class SysTrade {
     @Column(name = "jd_order_id")
     private String jdOrderId;
     @Column(name = "due_date")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss", timezone = "GMT+8")
     private Date dueDate;
     @Column(name = "result_message")
     private String resultMessage;
@@ -36,6 +39,8 @@ public class SysTrade {
     private String receiverMobile;
     @Column(name = "receiver_address")
     private String receiverAddress;
+    @Column(name = "coupon")
+    private String coupon;
 
 
     /**
@@ -44,7 +49,7 @@ public class SysTrade {
     public SysTrade() {
     }
 
-    public SysTrade(String tid, String jdOrderId, Date dueDate, String resultMessage, double price, boolean success, boolean confirm, String receiverName, String receiverMobile, String receiverAddress) {
+    public SysTrade(String tid, String jdOrderId, Date dueDate, String resultMessage, double price, boolean success, boolean confirm, String receiverName, String receiverMobile, String receiverAddress, String coupon) {
         this.tid = tid;
         this.jdOrderId = jdOrderId;
         this.dueDate = dueDate;
@@ -55,6 +60,7 @@ public class SysTrade {
         this.receiverName = receiverName;
         this.receiverMobile = receiverMobile;
         this.receiverAddress = receiverAddress;
+        this.coupon = coupon;
     }
 
     public int getId() {
@@ -145,6 +151,14 @@ public class SysTrade {
         this.receiverAddress = receiverAddress;
     }
 
+    public String getCoupon() {
+        return coupon;
+    }
+
+    public void setCoupon(String coupon) {
+        this.coupon = coupon;
+    }
+
     @Override
     public String toString() {
         return "SysTrade{" +
@@ -159,6 +173,7 @@ public class SysTrade {
                 ", receiverName='" + receiverName + '\'' +
                 ", receiverMobile='" + receiverMobile + '\'' +
                 ", receiverAddress='" + receiverAddress + '\'' +
+                ", coupon='" + coupon + '\'' +
                 '}';
     }
 }

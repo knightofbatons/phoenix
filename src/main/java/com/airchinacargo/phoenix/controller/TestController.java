@@ -53,7 +53,7 @@ public class TestController {
 
     @RequestMapping(value = "/searchSysTradeListBy/{receiver}", method = RequestMethod.GET)
     public List<SysTrade> searchSysTradeListByReceiver(@PathVariable("receiver") String receiver) {
-        return sysTradeRepository.findByReceiverMobileOrReceiverName(receiver, receiver).orElse(null);
+        return sysTradeRepository.findByReceiverMobileOrReceiverNameOrJdOrderId(receiver, receiver, receiver).orElse(null);
     }
 
     @RequestMapping(value = "/searchSysTradeListBy/receiverMobile/{receiverMobile}", method = RequestMethod.GET)
@@ -69,5 +69,15 @@ public class TestController {
     @RequestMapping(value = "/getBalance", method = RequestMethod.GET)
     public String getBalance() {
         return jdService.getBalance(jdService.readJdToken().getAccessToken());
+    }
+
+    @RequestMapping(value = "/getMessage", method = RequestMethod.GET)
+    public String getMessage(@RequestParam(value = "type", defaultValue = "14,15") String type) {
+        return jdService.messageGet(jdService.readJdToken().getAccessToken(), type).toString();
+    }
+
+    @RequestMapping(value = "/delMessage/{id}", method = RequestMethod.DELETE)
+    public void delMessage(@PathVariable("id") String id) {
+        jdService.messageDel(jdService.readJdToken().getAccessToken(), id);
     }
 }
