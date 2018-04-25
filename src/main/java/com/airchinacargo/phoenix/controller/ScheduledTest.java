@@ -117,7 +117,7 @@ public class ScheduledTest {
                     SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, realSkuNum, addressMap);
                     // 无论成功与否保存处理记录到数据库
                     sysTradeRepository.save(sysTrade);
-                    logger.info("[ 处理订单结果 ] --> " + sysTrade.toString());
+                    logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
                 }
             }
         }

@@ -191,6 +191,7 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public Map<String, Integer> getJdAddressFromAddress(String address, String accessToken) {
+        logger.info("[ getJdAddressFromAddress ] --> INPUT: address: " + address);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/area/getJDAddressFromAddress")
@@ -205,7 +206,6 @@ public class JdServiceImpl implements IJdService {
         if (!isSuccess) {
             // 不行就百度根据详细获取经纬度 再京东根据经纬度获取地址编码
             response = getJDAddressFromLatLng(accessToken, getLatLngFromAddress(address));
-            logger.info("[ getJdAddressFromAddress ] --> [ getJdAddressFromLatLng ]");
         }
         // 成功的情况正常获取
         Map<String, Integer> addressMap = new HashMap<>(4);
@@ -215,7 +215,8 @@ public class JdServiceImpl implements IJdService {
         // 京东地址有可能不存在第三四级地址
         addressMap.put("county", addressObject.getString("countyId").isEmpty() ? 0 : addressObject.getInt("countyId"));
         addressMap.put("town", addressObject.getString("townId").isEmpty() ? 0 : addressObject.getInt("townId"));
-        logger.info("[ getJdAddressFromAddress ] --> " + address + " --> " + response.getBody());
+        logger.info("[ getJdAddressFromAddress ] --> RESPONSE: " + response.getBody());
+        logger.info("[ getJdAddressFromAddress ] --> RETURN: addressMap: " + addressMap);
         return addressMap;
     }
 
@@ -228,6 +229,7 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public HttpResponse<JsonNode> getJDAddressFromLatLng(String accessToken, Map<String, Double> latLngMap) {
+        logger.info("[ getJDAddressFromLatLng ] --> INPUT: latLngMap: " + latLngMap);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/area/getJDAddressFromLatLng")
@@ -238,6 +240,7 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
+        logger.info("[ getJDAddressFromLatLng ] --> RESPONSE: " + response.getBody());
         return response;
     }
 
@@ -257,6 +260,7 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public Map<String, Double> getLatLngFromAddress(String address) {
+        logger.info("[ getLatLngFromAddress ] --> INPUT: address: " + address);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.get("http://api.map.baidu.com/geocoder/v2/")
@@ -271,6 +275,7 @@ public class JdServiceImpl implements IJdService {
         Map<String, Double> latLngMap = new HashMap<>(2);
         latLngMap.put("lat", latLngObject.getDouble("lat"));
         latLngMap.put("lng", latLngObject.getDouble("lng"));
+        logger.info("[ getLatLngFromAddress ] --> RETURN: latLngMap: " + latLngMap);
         return latLngMap;
     }
 
@@ -299,6 +304,7 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public List<String> getNewStockBySkuIdAndArea(String accessToken, List<SkuNum> skuNum, String area, boolean searchForOutOfStock) {
+        logger.info("[ getNewStockBySkuIdAndArea ] --> INPUT: skuNum: " + skuNum.toString() + " area: " + area + " searchForOutOfStock " + searchForOutOfStock);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/stock/getNewStockById")
@@ -318,6 +324,7 @@ public class JdServiceImpl implements IJdService {
                     goodList.add(String.valueOf(resultArray.getJSONObject(i).getInt("skuId")));
                 }
             }
+            logger.info("[ getNewStockBySkuIdAndArea ] --> RETURN: goodList: " + goodList);
             return goodList;
         }
         for (int i = 0; i < resultArray.length(); i++) {
@@ -326,6 +333,7 @@ public class JdServiceImpl implements IJdService {
                 goodList.add(String.valueOf(resultArray.getJSONObject(i).getInt("skuId")));
             }
         }
+        logger.info("[ getNewStockBySkuIdAndArea ] --> RETURN: goodList: " + goodList);
         return goodList;
     }
 
@@ -339,9 +347,9 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public List<SkuNum> getNeedToBuy(String accessToken, List<SkuNum> skuNum, String area) {
+        logger.info("[ getNeedToBuy ] --> INPUT: skuNum: " + skuNum.toString() + " area: " + area);
         // 先查出计划购买中缺货的
         List<String> needToReplaceSkuIdList = getNewStockBySkuIdAndArea(accessToken, skuNum, area, true);
-        logger.info("[ getNeedToBuy ] --> OutOfStock: " + needToReplaceSkuIdList.toString());
         for (SkuNum s : skuNum) {
             // 如果当前商品缺货
             if (needToReplaceSkuIdList.contains(s.getSkuId())) {
@@ -367,6 +375,7 @@ public class JdServiceImpl implements IJdService {
             }
 
         }
+        logger.info("[ getNeedToBuy ] --> RETURN: skuNum: " + skuNum.toString());
         return skuNum;
     }
 
@@ -403,6 +412,7 @@ public class JdServiceImpl implements IJdService {
         }
         HttpResponse<JsonNode> response = null;
         try {
+            logger.info("[ submitOrder ] --> API_INPUT: thirdOrder: " + yzTrade.getTid() + " sku: " + skuNum.toString() + " name: " + yzTrade.getReceiverName() + " province: " + area.get("province") + " city: " + area.get("city") + " county: " + area.get("county") + " town: " + area.get("town") + " address: " + yzTrade.getReceiverAddress() + " mobile: " + yzTrade.getReceiverMobile());
             response = Unirest.post("https://bizapi.jd.com/api/order/submitOrder")
                     .queryString("token", accessToken)
                     .queryString("thirdOrder", yzTrade.getTid())
@@ -437,6 +447,7 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
+        logger.info("[ submitOrder ] --> API_RESPONSE: " + response.getBody());
         // 检查下单是否成功
         JSONObject reJsonObject = response.getBody().getObject();
         boolean isSuccess = reJsonObject.getBoolean("success");

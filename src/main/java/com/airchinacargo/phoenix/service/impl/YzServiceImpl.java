@@ -208,6 +208,7 @@ public class YzServiceImpl implements IYzService {
      */
     @Override
     public void confirm(String accessToken, String tid, String jdOrderId, String oidList) {
+        logger.info("[ confirm ] --> INPUT: tid: " + tid + " jdOrderId: " + jdOrderId + " oidList: " + oidList);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.logistics.online/3.0.0/confirm")
@@ -221,7 +222,7 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info("[ confirm ] --> " + response.getBody().toString());
+        logger.info("[ confirm ] --> RESPONSE: " + response.getBody());
     }
 
     /**
@@ -233,6 +234,7 @@ public class YzServiceImpl implements IYzService {
      */
     @Override
     public void confirmNoSplit(String accessToken, String tid, String jdOrderId) {
+        logger.info("[ confirmNoSplit ] --> INPUT: tid: " + tid + " jdOrderId " + jdOrderId);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.logistics.online/3.0.0/confirm")
@@ -245,7 +247,7 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info("[ confirmNoSplit ] --> " + response.getBody().toString());
+        logger.info("[ confirmNoSplit ] --> " + response.getBody());
     }
 
     /**
@@ -257,6 +259,7 @@ public class YzServiceImpl implements IYzService {
      */
     @Override
     public void confirmNoExpress(String accessToken, String tid, String jdOrderId) {
+        logger.info("[ confirmNoExpress ] --> INPUT: tid: " + tid + " jdOrderId " + jdOrderId);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.logistics.online/3.0.0/confirm")
@@ -268,7 +271,7 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info("[ confirmNoExpress ] --> " + response.getBody().toString());
+        logger.info("[ confirmNoExpress ] --> RESPONSE: " + response.getBody());
     }
 
 

@@ -55,7 +55,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getYzTreadByTidTest() {
-        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180418092733023600010").toString());
+        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180420163107051900009").toString());
     }
 
     /**
@@ -111,7 +111,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getJdAddressFromAddressTest() {
-        logger.info(String.valueOf(jdService.getJdAddressFromAddress("黑龙江省七台河市桃山区黑龙江省七台河市桃山区自取-2-202", jdService.readJdToken().getAccessToken())));
+        jdService.getJdAddressFromAddress("黑龙江省七台河市桃山区黑龙江省七台河市桃山区自取-2-202", jdService.readJdToken().getAccessToken());
     }
 
     /**
@@ -130,7 +130,7 @@ public class PhoenixApplicationTests {
         Map<String, Double> map = new HashMap<>(2);
         map.put("lng", 114.54258178082);
         map.put("lat", 38.054369105989);
-        logger.info(jdService.getJDAddressFromLatLng(jdService.readJdToken().getAccessToken(), map).getBody().toString());
+        jdService.getJDAddressFromLatLng(jdService.readJdToken().getAccessToken(), map);
     }
 
     /**
@@ -197,4 +197,8 @@ public class PhoenixApplicationTests {
         jdService.getSellPrice(jdService.readJdToken().getAccessToken(), "2950891");
     }
 
+    @Test
+    public void Test() {
+
+    }
 }
