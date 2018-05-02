@@ -1,6 +1,8 @@
 package com.airchinacargo.phoenix.domain.repository;
 
 import com.airchinacargo.phoenix.domain.entity.SysTrade;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +22,16 @@ public interface ISysTradeRepository extends JpaRepository<SysTrade, Integer> {
      * @return Optional<SysTrade>
      */
     Optional<SysTrade> findByTid(String tid);
+
+    /**
+     * 根据是否成功提交京东和是否处理过发货来查询订单 带分页
+     *
+     * @param success  是否成功提交京东
+     * @param confirm  是否已经处理发货
+     * @param pageable 分页
+     * @return Optional
+     */
+    Page<List<SysTrade>> findBySuccessAndConfirm(boolean success, boolean confirm, Pageable pageable);
 
     /**
      * 根据是否成功提交京东和是否处理过发货来查询订单

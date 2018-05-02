@@ -62,8 +62,10 @@ public class TestController {
     }
 
     @RequestMapping(value = "/getFailedSysTradeList", method = RequestMethod.GET)
-    public List<SysTrade> getFailed() {
-        return sysTradeRepository.findBySuccessAndConfirm(false, false).orElse(null);
+    public Page<List<SysTrade>> getFailed(@RequestParam(value = "page", defaultValue = "0") int page,
+                                          @RequestParam(value = "size", defaultValue = "5") int size) {
+        Sort sort = new Sort(Sort.Direction.DESC, "id");
+        return sysTradeRepository.findBySuccessAndConfirm(false, false, PageRequest.of(page, size, sort));
     }
 
     @RequestMapping(value = "/getBalance", method = RequestMethod.GET)

@@ -204,18 +204,22 @@ public class JdServiceImpl implements IJdService {
         // 判断获取地址是否成功
         boolean isSuccess = response.getBody().getObject().getBoolean("success");
         if (!isSuccess) {
-            // 不行就百度根据详细获取经纬度 再京东根据经纬度获取地址编码
-            response = getJDAddressFromLatLng(accessToken, getLatLngFromAddress(address));
+            // 不行就百度根据详细获取经纬度 再京东根据经纬度获取地址编码 百度也拿不到就不处理了
+            Map<String, Double> addressMap = getLatLngFromAddress(address);
+            if (null == addressMap) {
+                return null;
+            }
+            response = getJDAddressFromLatLng(accessToken, addressMap);
         }
+        logger.info("[ getJdAddressFromAddress ] --> RESPONSE: " + response.getBody());
         // 成功的情况正常获取
         Map<String, Integer> addressMap = new HashMap<>(4);
         JSONObject addressObject = response.getBody().getObject().getJSONObject("result");
         addressMap.put("province", addressObject.getInt("provinceId"));
         addressMap.put("city", addressObject.getInt("cityId"));
         // 京东地址有可能不存在第三四级地址
-        addressMap.put("county", addressObject.getString("countyId").isEmpty() ? 0 : addressObject.getInt("countyId"));
-        addressMap.put("town", addressObject.getString("townId").isEmpty() ? 0 : addressObject.getInt("townId"));
-        logger.info("[ getJdAddressFromAddress ] --> RESPONSE: " + response.getBody());
+        addressMap.put("county", addressObject.getString("countyId").isEmpty() || "null".equals(addressObject.getString("countyId")) ? 0 : addressObject.getInt("countyId"));
+        addressMap.put("town", addressObject.getString("townId").isEmpty() || "null".equals(addressObject.getString("townId")) ? 0 : addressObject.getInt("townId"));
         logger.info("[ getJdAddressFromAddress ] --> RETURN: addressMap: " + addressMap);
         return addressMap;
     }
@@ -269,14 +273,20 @@ public class JdServiceImpl implements IJdService {
                     .queryString("address", address)
                     .asJson();
         } catch (UnirestException e) {
-            e.printStackTrace();
+            logger.info("[ getLatLngFromAddress ] --> BAI_DU_API_ERROR");
+            return null;
         }
-        JSONObject latLngObject = response.getBody().getObject().getJSONObject("result").getJSONObject("location");
-        Map<String, Double> latLngMap = new HashMap<>(2);
-        latLngMap.put("lat", latLngObject.getDouble("lat"));
-        latLngMap.put("lng", latLngObject.getDouble("lng"));
-        logger.info("[ getLatLngFromAddress ] --> RETURN: latLngMap: " + latLngMap);
-        return latLngMap;
+        try {
+            JSONObject latLngObject = response.getBody().getObject().getJSONObject("result").getJSONObject("location");
+            Map<String, Double> latLngMap = new HashMap<>(2);
+            latLngMap.put("lat", latLngObject.getDouble("lat"));
+            latLngMap.put("lng", latLngObject.getDouble("lng"));
+            logger.info("[ getLatLngFromAddress ] --> RETURN: latLngMap: " + latLngMap);
+            return latLngMap;
+        } catch (Exception e) {
+            logger.info("[ getLatLngFromAddress ] --> RETURN: null: ");
+            return null;
+        }
     }
 
 

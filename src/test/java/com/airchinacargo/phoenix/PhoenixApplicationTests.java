@@ -55,7 +55,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getYzTreadByTidTest() {
-        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180420163107051900009").toString());
+        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180426232747061600007").toString());
     }
 
     /**
@@ -111,7 +111,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getJdAddressFromAddressTest() {
-        jdService.getJdAddressFromAddress("黑龙江省七台河市桃山区黑龙江省七台河市桃山区自取-2-202", jdService.readJdToken().getAccessToken());
+        jdService.getJdAddressFromAddress("天津市天津市蓟州区人民东路 步行街正对的张庄胡同内100米 鱼里女装", jdService.readJdToken().getAccessToken());
     }
 
     /**
@@ -140,17 +140,21 @@ public class PhoenixApplicationTests {
     public void submitOrderTest() {
         List<YzTrade> yzTradeList = yzService.getYzTradesSold(yzService.readYzToken());
         String accessToken = jdService.readJdToken().getAccessToken();
+        int i = 0;
         for (YzTrade yzTrade : yzTradeList) {
             List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
             // 这个订单是否需要处理
+
             if (planSkuNum.size() > 1) {
-                logger.info(yzTrade.toString());
+                //logger.info(yzTrade.toString());
                 String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
                 Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, accessToken);
                 String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
-
                 List<SkuNum> realSkuNum = jdService.getNeedToBuy(accessToken, planSkuNum, area);
-                logger.info(realSkuNum.toString());
+                i++;
+                if (null != realSkuNum) {
+                    logger.info(i + " " + realSkuNum.toString());
+                }
                 //jdService.submitOrder(accessToken,yzTrade,realSkuNum,addressMap);
                 //TODO 京东没有测试环境所有测试均进入生产系统 如非必须不要测试下单
             }
@@ -197,8 +201,50 @@ public class PhoenixApplicationTests {
         jdService.getSellPrice(jdService.readJdToken().getAccessToken(), "2950891");
     }
 
+    /**
+     * 测试京东取消订单
+     */
     @Test
-    public void Test() {
-
+    public void cancelTest() {
+        jdService.cancel(jdService.readJdToken().getAccessToken(), "73995062475");
     }
+
+//    @Test
+//    public void Test(){
+//        List<Integer> in = Arrays.asList(
+//          6,5,4,3,2,1
+//        );
+//        // 冒泡排序
+//        for (int i =0 ; i < in.size() ; i++){
+//            for (int j = 1; j< in.size() ;j++){
+//                logger.info("for");
+//                if (in.get(j-1) > in.get(j)){
+//                    logger.info("change");
+//                    int k = in.get(j);
+//                    in.set(j,in.get(i));
+//                    in.set(i,k);
+//                    logger.info(in.toString());
+//                }
+//            }
+//        }
+//        in = Arrays.asList(
+//                6,5,4,3,2,1
+//        );
+//        logger.info("------------------------------------");
+//        // 冒泡排序
+//        for (int i =0 ; i < in.size() ; i++){
+//            for (int j = 1; j< in.size()- i;j++){
+//                logger.info("for");
+//                if (in.get(j-1) > in.get(j)){
+//                    logger.info("change");
+//                    int k = in.get(j);
+//                    in.set(j,in.get(j-1));
+//                    in.set(j-1,k);
+//                    logger.info(in.toString());
+//                }
+//            }
+//        }
+//
+//    }
+
 }
