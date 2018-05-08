@@ -3,6 +3,7 @@ package com.airchinacargo.phoenix;
 import com.airchinacargo.phoenix.domain.entity.SkuNum;
 import com.airchinacargo.phoenix.domain.entity.YzOrder;
 import com.airchinacargo.phoenix.domain.entity.YzTrade;
+import com.airchinacargo.phoenix.domain.repository.ISysTradeRepository;
 import com.airchinacargo.phoenix.domain.repository.IYzToJdRepository;
 import com.airchinacargo.phoenix.service.interfaces.IJdService;
 import com.airchinacargo.phoenix.service.interfaces.IYzService;
@@ -111,7 +112,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getJdAddressFromAddressTest() {
-        jdService.getJdAddressFromAddress("天津市天津市蓟州区人民东路 步行街正对的张庄胡同内100米 鱼里女装", jdService.readJdToken().getAccessToken());
+        jdService.getJdAddressFromAddress("天津市天津市东丽区泰安里9-4-101", jdService.readJdToken().getAccessToken());
     }
 
     /**
@@ -209,6 +210,13 @@ public class PhoenixApplicationTests {
         jdService.cancel(jdService.readJdToken().getAccessToken(), "73995062475");
     }
 
+    @Autowired
+    ISysTradeRepository sysTradeRepository;
+
+    @Test
+    public void Test() {
+        sysTradeRepository.deleteByIdAndSuccess(11, false);
+    }
 //    @Test
 //    public void Test(){
 //        List<Integer> in = Arrays.asList(

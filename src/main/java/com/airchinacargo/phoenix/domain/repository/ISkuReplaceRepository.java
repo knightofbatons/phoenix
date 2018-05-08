@@ -17,7 +17,7 @@ public interface ISkuReplaceRepository extends JpaRepository<SkuReplace, Integer
      * @param num       要被替代的数量
      * @return List<SkuReplace> 可以替代的结果
      */
-    List<SkuReplace> findByBeforeSkuAndBeforeNum(String beforeSku, int num);
+    List<SkuReplace> findByBeforeSkuAndBeforeNumOrderById(String beforeSku, int num);
 
     /**
      * 查询替代后货品数量的原货品数量

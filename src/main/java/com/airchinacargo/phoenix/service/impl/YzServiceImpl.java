@@ -132,7 +132,7 @@ public class YzServiceImpl implements IYzService {
                     .queryString("status", "WAIT_SELLER_SEND_GOODS")
                     .queryString("fields", FIELDS)
                     .queryString("access_token", accessToken)
-                    .queryString("page_size", 80)
+                    .queryString("page_size", 100)
                     .asJson();
         } catch (UnirestException e) {
             e.printStackTrace();

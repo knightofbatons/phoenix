@@ -77,4 +77,23 @@ public interface ISysTradeRepository extends JpaRepository<SysTrade, Integer> {
     @Modifying(clearAutomatically = true)
     @Query(nativeQuery = true, value = "UPDATE sys_trade p SET p.confirm = TRUE WHERE p.tid = ?1")
     void updateIsConfirm(String tid);
+
+    /**
+     * 变更为从新处理
+     *
+     * @param id 系统单号
+     */
+    @Transactional
+    @Modifying(clearAutomatically = true)
+    @Query(nativeQuery = true, value = "UPDATE sys_trade p SET p.tid = '从新处理' WHERE p.id = ?1 AND p.success = FALSE ")
+    void updateTid(int id);
+
+    /**
+     * 删除系统订单
+     *
+     * @param id      系统单号
+     * @param success 是否成功
+     */
+    @Transactional
+    void deleteByIdAndSuccess(int id, boolean success);
 }

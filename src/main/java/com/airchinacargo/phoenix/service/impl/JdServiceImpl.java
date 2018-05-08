@@ -218,8 +218,8 @@ public class JdServiceImpl implements IJdService {
         addressMap.put("province", addressObject.getInt("provinceId"));
         addressMap.put("city", addressObject.getInt("cityId"));
         // 京东地址有可能不存在第三四级地址
-        addressMap.put("county", addressObject.getString("countyId").isEmpty() || "null".equals(addressObject.getString("countyId")) ? 0 : addressObject.getInt("countyId"));
-        addressMap.put("town", addressObject.getString("townId").isEmpty() || "null".equals(addressObject.getString("townId")) ? 0 : addressObject.getInt("townId"));
+        addressMap.put("county", addressObject.isNull("countyId") || addressObject.getString("countyId").isEmpty() || "null".equals(addressObject.getString("countyId")) ? 0 : addressObject.getInt("countyId"));
+        addressMap.put("town", addressObject.isNull("townId") || addressObject.getString("townId").isEmpty() || "null".equals(addressObject.getString("townId")) ? 0 : addressObject.getInt("townId"));
         logger.info("[ getJdAddressFromAddress ] --> RETURN: addressMap: " + addressMap);
         return addressMap;
     }
@@ -265,7 +265,7 @@ public class JdServiceImpl implements IJdService {
     @Override
     public Map<String, Double> getLatLngFromAddress(String address) {
         logger.info("[ getLatLngFromAddress ] --> INPUT: address: " + address);
-        HttpResponse<JsonNode> response = null;
+        HttpResponse<JsonNode> response;
         try {
             response = Unirest.get("http://api.map.baidu.com/geocoder/v2/")
                     .queryString("ak", bdKey)
@@ -363,8 +363,8 @@ public class JdServiceImpl implements IJdService {
         for (SkuNum s : skuNum) {
             // 如果当前商品缺货
             if (needToReplaceSkuIdList.contains(s.getSkuId())) {
-                // 查出当前缺货商品的可替代列表
-                List<SkuReplace> skuReplaceList = skuReplaceRepository.findByBeforeSkuAndBeforeNum(s.getSkuId(), s.getNum());
+                // 查出当前缺货商品的可替代列表 结果是按照 id 排序的 id 的意义是替换的优先度
+                List<SkuReplace> skuReplaceList = skuReplaceRepository.findByBeforeSkuAndBeforeNumOrderById(s.getSkuId(), s.getNum());
                 // 查出可替代货品的有货列表
                 List<SkuNum> skuNumList = skuReplaceList.stream()
                         .map(p -> new SkuNum(p.getAfterSku(), p.getAfterNum()))

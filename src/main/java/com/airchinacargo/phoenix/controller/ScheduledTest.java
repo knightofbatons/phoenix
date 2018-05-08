@@ -99,7 +99,7 @@ public class ScheduledTest {
             }
         }
 
-        // 获取有赞所有付款未发货订单 （取最新至多80条）
+        // 获取有赞所有付款未发货订单 （取最新至多100条）
         List<YzTrade> yzTradeList = yzService.getYzTradesSold(yzToken);
         // 遍历这些订单
         for (YzTrade yzTrade : yzTradeList) {

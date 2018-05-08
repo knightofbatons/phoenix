@@ -82,4 +82,14 @@ public class TestController {
     public void delMessage(@PathVariable("id") String id) {
         jdService.messageDel(jdService.readJdToken().getAccessToken(), id);
     }
+
+    @RequestMapping(value = "/updateTid/{id}", method = RequestMethod.POST)
+    public void updateTid(@PathVariable("id") int id) {
+        sysTradeRepository.updateTid(id);
+    }
+
+    @RequestMapping(value = "/deleteFailedSysTradeById/{id}", method = RequestMethod.DELETE)
+    public void deleteFailedSysTradeById(@PathVariable("id") int id) {
+        sysTradeRepository.deleteByIdAndSuccess(id, false);
+    }
 }
