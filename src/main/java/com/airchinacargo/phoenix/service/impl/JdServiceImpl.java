@@ -3,6 +3,7 @@ package com.airchinacargo.phoenix.service.impl;
 import com.airchinacargo.phoenix.domain.entity.*;
 import com.airchinacargo.phoenix.domain.repository.ISkuReplaceRepository;
 import com.airchinacargo.phoenix.domain.repository.ITokenRepository;
+import com.airchinacargo.phoenix.domain.repository.IYzToJdRepository;
 import com.airchinacargo.phoenix.service.interfaces.IJdService;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -37,6 +38,8 @@ public class JdServiceImpl implements IJdService {
     ITokenRepository tokenRepository;
     @Autowired
     ISkuReplaceRepository skuReplaceRepository;
+    @Autowired
+    IYzToJdRepository yzToJdRepository;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -370,9 +373,11 @@ public class JdServiceImpl implements IJdService {
                         .map(p -> new SkuNum(p.getAfterSku(), p.getAfterNum()))
                         .collect(Collectors.toList());
                 List<String> couldBeBuySkuIdList = getNewStockBySkuIdAndArea(accessToken, skuNumList, area, false);
-                // 如果这个缺货商品的可替代货品全部缺货 那么停止并返回 null
+                // 如果这个缺货商品的可替代货品全部缺货 那么停止并返回
                 if (0 == couldBeBuySkuIdList.size()) {
-                    return null;
+                    List<SkuNum> sn = new ArrayList<>();
+                    sn.add(new SkuNum(s.getSkuId(), -1));
+                    return sn;
                 }
                 // 用替代列表里有货的把之前缺货的换了 有多个有货 第一个是谁算谁
                 for (SkuReplace sr : skuReplaceList) {
@@ -413,8 +418,8 @@ public class JdServiceImpl implements IJdService {
     public SysTrade submitOrder(String accessToken, YzTrade yzTrade, List<SkuNum> skuNum, Map<String, Integer> area) {
         String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
         // 判断是不是有缺货商品的所有可替代都缺货
-        if (null == skuNum) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
+        if (-1 == skuNum.get(0).getNum()) {
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换 " + skuNum.get(0).getSkuId(), 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
         }
         // 判断是不是实际花钱购买的 最多付款
         if (PAYMENT_MAX < yzTrade.getPayment()) {
@@ -559,9 +564,10 @@ public class JdServiceImpl implements IJdService {
      *
      * @param accessToken 授权时获取的 access token
      * @param skuList     商品编号，请以，(英文逗号)分割(最高支持 100 个商品)。例如：129408,129409
+     * @return JSONObject
      */
     @Override
-    public void getSellPrice(String accessToken, String skuList) {
+    public JSONObject getSellPrice(String accessToken, String skuList) {
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/price/getSellPrice")
@@ -571,7 +577,7 @@ public class JdServiceImpl implements IJdService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        logger.info(response.getBody().toString());
+        return response.getBody().getObject();
     }
 
     /**
@@ -633,5 +639,22 @@ public class JdServiceImpl implements IJdService {
             e.printStackTrace();
         }
         logger.info(response.getBody().getObject().toString());
+    }
+
+    /**
+     * 获取所有在售卖的商品列表 包括可替换到的
+     *
+     * @return List<String>
+     */
+    @Override
+    public List<String> getAllSellSku() {
+        List<String> allSellSkuList = yzToJdRepository.findAll().stream()
+                .map(p -> p.getSkuId())
+                .collect(Collectors.toList());
+        List<String> allReplaceableSkuList = skuReplaceRepository.findAll().stream()
+                .map(p -> p.getAfterSku())
+                .collect(Collectors.toList());
+        allSellSkuList.addAll(allReplaceableSkuList);
+        return allSellSkuList;
     }
 }

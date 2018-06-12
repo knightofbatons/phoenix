@@ -1,5 +1,6 @@
 package com.airchinacargo.phoenix.controller;
 
+import antlr.StringUtils;
 import com.airchinacargo.phoenix.domain.entity.SysTrade;
 import com.airchinacargo.phoenix.domain.repository.ISysTradeRepository;
 import com.airchinacargo.phoenix.service.interfaces.IJdService;
@@ -91,5 +92,15 @@ public class TestController {
     @RequestMapping(value = "/deleteFailedSysTradeById/{id}", method = RequestMethod.DELETE)
     public void deleteFailedSysTradeById(@PathVariable("id") int id) {
         sysTradeRepository.deleteByIdAndSuccess(id, false);
+    }
+
+    @RequestMapping(value = "/getAllSellPrice", method = RequestMethod.GET)
+    public String getAllSellPrice() {
+        return jdService.getSellPrice(jdService.readJdToken().getAccessToken(), StringUtils.stripFrontBack(jdService.getAllSellSku().toString(), "[", "]").replaceAll(" ", "")).toString();
+    }
+
+    @RequestMapping(value = "/getSellPrice/{skuList}", method = RequestMethod.GET)
+    public String getSellPrice(@PathVariable("skuList") String skuList) {
+        return jdService.getSellPrice(jdService.readJdToken().getAccessToken(), skuList).toString();
     }
 }

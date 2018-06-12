@@ -1,6 +1,7 @@
 package com.airchinacargo.phoenix;
 
 import com.airchinacargo.phoenix.domain.entity.SkuNum;
+import com.airchinacargo.phoenix.domain.entity.SysTrade;
 import com.airchinacargo.phoenix.domain.entity.YzOrder;
 import com.airchinacargo.phoenix.domain.entity.YzTrade;
 import com.airchinacargo.phoenix.domain.repository.ISysTradeRepository;
@@ -15,10 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest
@@ -56,7 +54,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void getYzTreadByTidTest() {
-        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180426232747061600007").toString());
+        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20180430190231052900001").toString());
     }
 
     /**
@@ -215,7 +213,31 @@ public class PhoenixApplicationTests {
 
     @Test
     public void Test() {
-        sysTradeRepository.deleteByIdAndSuccess(11, false);
+        String jdToken = jdService.readJdToken().getAccessToken();
+        YzTrade yzTrade = yzService.getYzTreadByTid(yzService.readYzToken(), "E20180603202928053400004");
+        logger.info(yzTrade.toString());
+        List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
+        yzTrade.setReceiverAddress("沈北街道云峰17号楼5-4-1");
+        // 准备下单需要的参数
+        String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
+        Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, jdToken);
+        logger.info(address);
+        logger.info(addressMap.toString());
+        // 如果获取地址正常
+        if (null != addressMap) {
+            String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
+            //List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
+            List<SkuNum> test = new ArrayList<>();
+            test.add(new SkuNum("1", -1));
+            // 在京东下单并获得下单结果
+            SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, test, addressMap);
+            // 无论下单成功与否保存处理记录到数据库
+            logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
+            //sysTradeRepository.save(sysTrade);
+        } else {
+            // 处理地址不正常订单记录到数据库
+            sysTradeRepository.save(new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "地址无法解析", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName()));
+        }
     }
 //    @Test
 //    public void Test(){

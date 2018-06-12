@@ -135,8 +135,10 @@ public interface IJdService {
      *
      * @param accessToken 授权时获取的 access token
      * @param skuList     商品编号，请以，(英文逗号)分割(最高支持 100 个商品)。例如：129408,129409
+     *
+     * @return JSONObject
      */
-    void getSellPrice(String accessToken, String skuList);
+    JSONObject getSellPrice(String accessToken, String skuList);
 
     /**
      * 取消订单
@@ -162,4 +164,11 @@ public interface IJdService {
      * @param id          推送信息 id 支持批量删除，英文逗号间隔，最大 100 个
      */
     void messageDel(String accessToken, String id);
+
+    /**
+     * 获取所有在售卖的商品列表 包括可替换到的
+     *
+     * @return List<String>
+     */
+    List<String> getAllSellSku();
 }
