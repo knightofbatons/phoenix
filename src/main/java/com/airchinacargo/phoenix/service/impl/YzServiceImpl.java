@@ -186,6 +186,9 @@ public class YzServiceImpl implements IYzService {
         List<YzOrder> yzOrderList = yzTrade.getOrders();
         return yzOrderList
                 .stream()
+                //有赞订单中的数量乘以数据库中的数量得到最终数量
+                //.map(p -> new YzToJd(null,yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()).getSkuId(),p.getOrderNum()*yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()).getNum()))
+                //直接从数据库中获取数量
                 .map(p -> yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()))
                 .filter(p -> p.getSkuId() != null)
                 .map(p -> new SkuNum(p.getSkuId(), p.getNum()))

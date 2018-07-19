@@ -1,9 +1,8 @@
 package com.airchinacargo.phoenix.service.impl;
 
+import antlr.StringUtils;
 import com.airchinacargo.phoenix.domain.entity.*;
-import com.airchinacargo.phoenix.domain.repository.ISkuReplaceRepository;
-import com.airchinacargo.phoenix.domain.repository.ITokenRepository;
-import com.airchinacargo.phoenix.domain.repository.IYzToJdRepository;
+import com.airchinacargo.phoenix.domain.repository.*;
 import com.airchinacargo.phoenix.service.interfaces.IJdService;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -20,11 +19,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.commons.codec.digest.DigestUtils.md5Hex;
 
 
@@ -40,6 +41,10 @@ public class JdServiceImpl implements IJdService {
     ISkuReplaceRepository skuReplaceRepository;
     @Autowired
     IYzToJdRepository yzToJdRepository;
+    @Autowired
+    ISysTradeRepository sysTradeRepository;
+    @Autowired
+    IInvoiceRepository invoiceRepository;
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -287,7 +292,7 @@ public class JdServiceImpl implements IJdService {
             logger.info("[ getLatLngFromAddress ] --> RETURN: latLngMap: " + latLngMap);
             return latLngMap;
         } catch (Exception e) {
-            logger.info("[ getLatLngFromAddress ] --> RETURN: null: ");
+            logger.info("[ getLatLngFromAddress ] --> RETURN: null");
             return null;
         }
     }
@@ -317,7 +322,7 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public List<String> getNewStockBySkuIdAndArea(String accessToken, List<SkuNum> skuNum, String area, boolean searchForOutOfStock) {
-        logger.info("[ getNewStockBySkuIdAndArea ] --> INPUT: skuNum: " + skuNum.toString() + " area: " + area + " searchForOutOfStock " + searchForOutOfStock);
+        logger.info("[ getNewStockBySkuIdAndArea ] --> INPUT: skuNum: " + skuNum.toString() + " area: " + area + " searchForOutOfStock: " + searchForOutOfStock);
         HttpResponse<JsonNode> response = null;
         try {
             response = Unirest.post("https://bizapi.jd.com/api/stock/getNewStockById")
@@ -368,6 +373,12 @@ public class JdServiceImpl implements IJdService {
             if (needToReplaceSkuIdList.contains(s.getSkuId())) {
                 // 查出当前缺货商品的可替代列表 结果是按照 id 排序的 id 的意义是替换的优先度
                 List<SkuReplace> skuReplaceList = skuReplaceRepository.findByBeforeSkuAndBeforeNumOrderById(s.getSkuId(), s.getNum());
+                // 如果这个缺货商品没有可替代货品 那么停止并返回
+                if (0 == skuReplaceList.size()) {
+                    List<SkuNum> sn = new ArrayList<>();
+                    sn.add(new SkuNum(s.getSkuId(), -1));
+                    return sn;
+                }
                 // 查出可替代货品的有货列表
                 List<SkuNum> skuNumList = skuReplaceList.stream()
                         .map(p -> new SkuNum(p.getAfterSku(), p.getAfterNum()))
@@ -656,5 +667,282 @@ public class JdServiceImpl implements IJdService {
                 .collect(Collectors.toList());
         allSellSkuList.addAll(allReplaceableSkuList);
         return allSellSkuList;
+    }
+
+    /**
+     * 从配置文件读取的发票有关信息
+     */
+    @Value("${INVOICE.TITLE}")
+    private String rowTitle;
+    @Value("${INVOICE.ENTERPRISE_TAXPAYER}")
+    private String enterpriseTaxpayer;
+    @Value("${INVOICE.BILL_TO_ER}")
+    private String rowBillToEr;
+    @Value("${INVOICE.BILL_TO_CONTACT}")
+    private String billToContact;
+    @Value("${INVOICE.BILL_TO_ADDRESS}")
+    private String rowBillToAddress;
+    @Value("${INVOICE.INVOICE_ORG}")
+    private String invoiceOrg;
+    @Value("${INVOICE.BILL_TO_CITY_AND_COUNTY}")
+    private String rowBillToCityAndCounty;
+
+    /**
+     * 发票提报
+     *
+     * @param accessToken             授权时获取的 access token
+     * @param supplierOrder           需要开发票的 子订单号，批量以，分割
+     * @param markId                  第三方申请单号：申请发票的唯一id标识 (该标记下可以对应多张发票信息)
+     * @param settlementId            结算单号（一个结算单号可对对应多个第三方申请单号）
+     * @param area                    京东四级地址的编码
+     * @param invoiceDate             期望开票时间 2013-11-8
+     * @param invoiceNum              当前批次子订单总数
+     * @param invoicePrice            当前批次含税总金额
+     * @param currentBatch            当前批次号
+     * @param totalBatch              总批次数
+     * @param totalBatchInvoiceAmount 总批次开发票价税合计
+     */
+    @Override
+    public void invoiceSubmit(String accessToken, String supplierOrder, String markId, String settlementId, Map<String, Integer> area, String invoiceDate, int invoiceNum, BigDecimal invoicePrice, int currentBatch, int totalBatch, BigDecimal totalBatchInvoiceAmount) {
+        // SpringBoot 2.0 暂且存在从配置文件中读取中文乱码的问题 SpringBoot 1.x 的解决办法无效 所以在这里转码
+        String title = null;
+        String billToEr = null;
+        String billToAddress = null;
+        try {
+            title = new String(rowTitle.getBytes("ISO-8859-1"), "UTF-8");
+            billToEr = new String(rowBillToEr.getBytes("ISO-8859-1"), "UTF-8");
+            billToAddress = new String(rowBillToAddress.getBytes("ISO-8859-1"), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        HttpResponse<JsonNode> response = null;
+        try {
+            logger.info("[ invoiceSubmit ] --> API_INPUT: supplierOrder: " + supplierOrder + " markId: " + markId + " settlementId: " + settlementId + " invoiceType: " + 2 + " invoiceOrg: " + invoiceOrg + " bizInvoiceContent: " + 1 + " invoiceDate: " + invoiceDate + " title: " + title + " enterpriseTaxpayer: " + enterpriseTaxpayer + " billToer: " + billToEr + " billToContact: " + billToContact + " billToProvince: " + area.get("province") + " billToCity: " + area.get("city") + " billToCounty: " + area.get("county") + " billToTown: " + area.get("town") + " billToAddress: " + billToAddress + " invoiceNum: " + invoiceNum + " invoicePrice: " + invoicePrice + " currentBatch: " + currentBatch + " totalBatch: " + totalBatch + " totalBatchInvoiceAmount: " + totalBatchInvoiceAmount);
+            response = Unirest.post("https://bizapi.jd.com/api/invoice/submit")
+                    .queryString("token", accessToken)
+                    // 需要开发票的 子订单号，批量以，分割
+                    .queryString("supplierOrder", supplierOrder)
+                    // 第三方申请单号：申请发票的唯一id标识 (该标记下可以对应多张发票信息)
+                    .queryString("markId", markId)
+                    // 结算单号（一个结算单号可对对应多个第三方申请单号）
+                    .queryString("settlementId", settlementId)
+                    // 发票类型   2增值税
+                    .queryString("invoiceType", 2)
+                    // 开票机构ID（联系京东业务确定）
+                    .queryString("invoiceOrg", invoiceOrg)
+                    // 开票内容：1, "明细"
+                    .queryString("bizInvoiceContent", 1)
+                    // 期望开票时间  2013-11-8
+                    .queryString("invoiceDate", invoiceDate)
+                    // 发票抬头（参考使用）
+                    .queryString("title", title)
+                    // 纳税人识别号（增票必须）
+                    .queryString("enterpriseTaxpayer", enterpriseTaxpayer)
+                    // 收票人
+                    .queryString("billToer", billToEr)
+                    // 收票人联系方式
+                    .queryString("billToContact", billToContact)
+                    // 收票人地址（省）
+                    .queryString("billToProvince", area.get("province"))
+                    // 收票人地址（市）
+                    .queryString("billToCity", area.get("city"))
+                    // 收票人地址（区）
+                    .queryString("billToCounty", area.get("county"))
+                    // 收票人地址（街道）
+                    .queryString("billToTown", area.get("town"))
+                    // 收票人地址（详细地址）
+                    .queryString("billToAddress", billToAddress)
+                    // 当前批次子订单总数 （计算）
+                    .queryString("invoiceNum", invoiceNum)
+                    // 当前批次含税总金额 （计算）
+                    .queryString("invoicePrice", invoicePrice)
+                    // 当前批次号 （计算）
+                    .queryString("currentBatch", currentBatch)
+                    // 总批次数 （计算）
+                    .queryString("totalBatch", totalBatch)
+                    // 总批次开发票价税合计 （计算）
+                    .queryString("totalBatchInvoiceAmount", totalBatchInvoiceAmount)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info("[ invoiceSubmit ] --> API_RESPONSE: " + response.getBody());
+    }
+
+    /**
+     * 查询发票信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param markId      第三方申请单号：申请发票的唯一id标识 (该标记下可以对应多张发票信息)
+     */
+    @Override
+    public void invoiceSelect(String accessToken, String markId) {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/invoice/select")
+                    .queryString("token", accessToken)
+                    .queryString("markId", markId)
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().getObject().toString());
+    }
+
+    /**
+     * 根据选择开票的系统订单编号 得到详细的京东子单列表
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param beginId     开始系统订单编码
+     * @param endId       结束系统订单编码
+     * @return needToInvoiceJdOrder 想要开票的京东子单列表
+     */
+    @Override
+    public List<JdOrder> getNeedToInvoiceJdOrderList(String accessToken, int beginId, int endId) {
+        logger.info("[ getNeedToInvoiceJdOrderList ] --> INPUT: beginId:" + beginId + " endId:" + endId);
+        // 获取 sys_Trade 表中想要开发票的订单（以 id 分段包含两端）这些订单必须是成功且发货的
+        List<SysTrade> needToInvoiceSysTradeList = sysTradeRepository.findByIdBetweenAndSuccessAndConfirm(beginId, endId, true, true);
+        List<JdOrder> needToInvoiceJdOrderList = new ArrayList<>();
+        Gson gson = new Gson();
+        for (SysTrade sysTrade : needToInvoiceSysTradeList) {
+            // 查询京东订单详细信息
+            JSONObject responseObject = this.selectJdOrder(accessToken, sysTrade.getJdOrderId());
+            // 如果京东拆单了 （这里判断的依据是如果没拆单那么父单号也就是子单号 pOrder 字段不会是是 JSONObject 类型而会是 0）
+            if (responseObject.getJSONObject("result").get("pOrder") instanceof JSONObject) {
+                // 获取京东子单列表
+                List<JdOrder> jdOrderList = gson.fromJson(responseObject.getJSONObject("result").get("cOrder").toString(), new TypeToken<List<JdOrder>>() {
+                }.getType());
+                needToInvoiceJdOrderList.addAll(jdOrderList);
+            } else {
+                // 获取父单（没拆单的话）
+                JdOrder jdOrder = gson.fromJson(responseObject.getJSONObject("result").toString(), new TypeToken<JdOrder>() {
+                }.getType());
+                needToInvoiceJdOrderList.add(jdOrder);
+            }
+        }
+        logger.info("[ getNeedToInvoiceJdOrderList ] --> RETURN: needToInvoiceJdOrderList: " + needToInvoiceJdOrderList);
+        return needToInvoiceJdOrderList;
+    }
+
+    /**
+     * INVOICE_NUM_MAX 单批次最大子订单数
+     * DELIVERED_STATE 京东物流状态 已投妥
+     */
+    private final int INVOICE_NUM_MAX = 30;
+    private final int DELIVERED_STATE = 1;
+
+    /**
+     * 开取发票
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param beginId     开始系统订单编码
+     * @param endId       结束系统订单编码
+     */
+    @Override
+    public void invoice(String accessToken, int beginId, int endId) {
+        // SpringBoot 2.0 暂且存在从配置文件中读取中文乱码的问题 SpringBoot 1.x 的解决办法无效 所以在这里转码
+        String billToCityAndCounty = null;
+        String billToAddress = null;
+        try {
+            billToCityAndCounty = new String(rowBillToCityAndCounty.getBytes("ISO-8859-1"), "UTF-8");
+            billToAddress = new String(rowBillToAddress.getBytes("ISO-8859-1"), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        // 获取待处理子订单列表
+        List<JdOrder> needToInvoiceJdOrderList = this.getNeedToInvoiceJdOrderList(accessToken, beginId, endId);
+        // 过滤掉未投妥订单
+        List<JdOrder> errorNeedToInvoiceJdOrderList = needToInvoiceJdOrderList.stream()
+                .filter(p -> DELIVERED_STATE != p.getState())
+                .collect(toList());
+        needToInvoiceJdOrderList.removeAll(errorNeedToInvoiceJdOrderList);
+        // 待处理总数
+        int totalOrderNum = needToInvoiceJdOrderList.size();
+        // 每一批最多 300 个
+        int invoiceNum = INVOICE_NUM_MAX;
+        // 分批数量
+        int totalBatch;
+        // 单批次开始位置
+        int fromIndex;
+        // 单批次结束位置
+        int toIndex;
+
+        // 计算总批次数
+        if (totalOrderNum <= INVOICE_NUM_MAX) {
+            totalBatch = 1;
+        } else {
+            totalBatch = totalOrderNum % invoiceNum > 0 ? totalOrderNum / invoiceNum + 1 : totalOrderNum / invoiceNum;
+        }
+        logger.info("总批次数:" + totalBatch);
+
+
+        // 计算总批次开发票价税合计
+        BigDecimal freight = new BigDecimal(0);
+        for (JdOrder jdOrder : needToInvoiceJdOrderList) {
+            freight = freight.add(jdOrder.getFreight());
+        }
+        logger.info("总批次运费合计:" + freight);
+        BigDecimal totalBatchInvoiceAmount = new BigDecimal(0);
+        for (JdOrder jdOrder : needToInvoiceJdOrderList) {
+            totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(jdOrder.getOrderPrice());
+        }
+        logger.info("没有加运费:" + totalBatchInvoiceAmount);
+        totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(freight);
+        logger.info("总批次开发票价税合计:" + totalBatchInvoiceAmount);
+
+        // 获取地址编码
+        Map<String, Integer> area = this.getJdAddressFromAddress(billToCityAndCounty + billToAddress, accessToken);
+
+        // 京东需要的时间格式
+        Date today = new Date();
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        String timestamp = simpleDateFormat.format(today);
+        // 结算单号
+        String settlementId = timestamp + "/" + beginId + "-" + endId + "-A-" + totalBatch;
+        // 分批开取发票
+        for (int i = 0; i < totalBatch; i++) {
+            // 计算当前批次开始和结束位置
+            fromIndex = i * invoiceNum;
+            // 最后一批不满 300 个的情况
+            if (i == totalBatch - 1 && (totalOrderNum % invoiceNum != 0)) {
+                invoiceNum = totalOrderNum % invoiceNum;
+                toIndex = totalOrderNum;
+            } else {
+                toIndex = (i + 1) * invoiceNum;
+            }
+            // 根据开始和结束位置获取当前批次
+            List<JdOrder> jdOrderList = needToInvoiceJdOrderList.subList(fromIndex, toIndex);
+            // 当前批次需要开发票的子订单号 以逗号分隔
+            List<String> jdOrderIdList = jdOrderList.stream()
+                    .map(p -> p.getJdOrderId().toString())
+                    .collect(Collectors.toList());
+            String supplierOrder = StringUtils.stripFrontBack(jdOrderIdList.toString(), "[", "]").replaceAll(" ", "");
+            // 计算当前批次含税总金额
+            BigDecimal currentFreight = new BigDecimal(0);
+            for (JdOrder jdOrder : jdOrderList) {
+                currentFreight = currentFreight.add(jdOrder.getFreight());
+            }
+            logger.info("运费:" + currentFreight);
+            BigDecimal invoicePrice = new BigDecimal(0);
+            for (JdOrder jdOrder : jdOrderList) {
+                invoicePrice = invoicePrice.add(jdOrder.getOrderPrice());
+            }
+            logger.info("没有加运费:" + invoicePrice);
+            invoicePrice = invoicePrice.add(currentFreight);
+            logger.info("加运费:" + invoicePrice);
+            // 计算当前批次号
+            int currentBatch = i + 1;
+            // 第三方申请单号
+            String markId = timestamp + "/" + beginId + "-" + endId + "-N-" + currentBatch;
+
+            // 调用申请开票接口
+            this.invoiceSubmit(accessToken, supplierOrder, markId, settlementId, area, timestamp, invoiceNum, invoicePrice, currentBatch, totalBatch, totalBatchInvoiceAmount);
+        }
+        List<Long> errorNeedToInvoiceJdOrderId = errorNeedToInvoiceJdOrderList.stream()
+                .map(p -> p.getJdOrderId())
+                .collect(toList());
+        String errorOrders = StringUtils.stripFrontBack(errorNeedToInvoiceJdOrderId.toString(), "[", "]").replaceAll(" ", "");
+        // 存储本次结算
+        invoiceRepository.save(new Invoice(settlementId, beginId, endId, today, totalBatch, errorOrders));
     }
 }

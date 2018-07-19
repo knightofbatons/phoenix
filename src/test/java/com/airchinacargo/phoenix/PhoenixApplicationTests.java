@@ -144,7 +144,7 @@ public class PhoenixApplicationTests {
             List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
             // 这个订单是否需要处理
 
-            if (planSkuNum.size() > 1) {
+            if (planSkuNum.size() > 0) {
                 //logger.info(yzTrade.toString());
                 String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
                 Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, accessToken);
@@ -173,7 +173,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void selectJdOrderTest() {
-        logger.info(jdService.selectJdOrder(jdService.readJdToken().getAccessToken(), "73995062475").toString());
+        logger.info(jdService.selectJdOrder(jdService.readJdToken().getAccessToken(), "76680368194").toString());
     }
 
     /**
@@ -181,7 +181,7 @@ public class PhoenixApplicationTests {
      */
     @Test
     public void orderTrackTest() {
-        logger.info(jdService.orderTrack(jdService.readJdToken().getAccessToken(), "73958856001").toString());
+        logger.info(jdService.orderTrack(jdService.readJdToken().getAccessToken(), "7668").toString());
     }
 
     /**
@@ -212,69 +212,40 @@ public class PhoenixApplicationTests {
     ISysTradeRepository sysTradeRepository;
 
     @Test
-    public void Test() {
+    public void testSubmitOrder() {
         String jdToken = jdService.readJdToken().getAccessToken();
-        YzTrade yzTrade = yzService.getYzTreadByTid(yzService.readYzToken(), "E20180603202928053400004");
+        YzTrade yzTrade = yzService.getYzTreadByTid(yzService.readYzToken(), "E20180430094809043300003");
+        yzTrade.setReceiverAddress("五三街道新隆街万科明天广场14号楼1单元21楼1号");
+        //yzTrade.setTid("E20180629205845007800005BF");
         logger.info(yzTrade.toString());
+
         List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
-        yzTrade.setReceiverAddress("沈北街道云峰17号楼5-4-1");
+//        List<SkuNum> planSkuNum = new ArrayList<>(3);
+//        planSkuNum.add(new SkuNum("1044739",1));
+//        planSkuNum.add(new SkuNum("1069325",1));
+//        planSkuNum.add(new SkuNum("923621",1));
         // 准备下单需要的参数
         String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
         Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, jdToken);
         logger.info(address);
-        logger.info(addressMap.toString());
         // 如果获取地址正常
         if (null != addressMap) {
-            String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
-            //List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
-            List<SkuNum> test = new ArrayList<>();
-            test.add(new SkuNum("1", -1));
+            String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("county");
+            List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
+            logger.info(realSkuNum.toString());
             // 在京东下单并获得下单结果
-            SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, test, addressMap);
+            //SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, realSkuNum, addressMap);
             // 无论下单成功与否保存处理记录到数据库
-            logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
+            //logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
             //sysTradeRepository.save(sysTrade);
         } else {
             // 处理地址不正常订单记录到数据库
             sysTradeRepository.save(new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "地址无法解析", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName()));
         }
     }
-//    @Test
-//    public void Test(){
-//        List<Integer> in = Arrays.asList(
-//          6,5,4,3,2,1
-//        );
-//        // 冒泡排序
-//        for (int i =0 ; i < in.size() ; i++){
-//            for (int j = 1; j< in.size() ;j++){
-//                logger.info("for");
-//                if (in.get(j-1) > in.get(j)){
-//                    logger.info("change");
-//                    int k = in.get(j);
-//                    in.set(j,in.get(i));
-//                    in.set(i,k);
-//                    logger.info(in.toString());
-//                }
-//            }
-//        }
-//        in = Arrays.asList(
-//                6,5,4,3,2,1
-//        );
-//        logger.info("------------------------------------");
-//        // 冒泡排序
-//        for (int i =0 ; i < in.size() ; i++){
-//            for (int j = 1; j< in.size()- i;j++){
-//                logger.info("for");
-//                if (in.get(j-1) > in.get(j)){
-//                    logger.info("change");
-//                    int k = in.get(j);
-//                    in.set(j,in.get(j-1));
-//                    in.set(j-1,k);
-//                    logger.info(in.toString());
-//                }
-//            }
-//        }
-//
-//    }
 
+    @Test
+    public void testInvoice() {
+        jdService.invoice(jdService.getJdToken().getAccessToken(), 4, 7000);
+    }
 }

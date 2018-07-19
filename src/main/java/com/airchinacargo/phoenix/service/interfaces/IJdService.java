@@ -1,13 +1,11 @@
 package com.airchinacargo.phoenix.service.interfaces;
 
-import com.airchinacargo.phoenix.domain.entity.SkuNum;
-import com.airchinacargo.phoenix.domain.entity.SysTrade;
-import com.airchinacargo.phoenix.domain.entity.Token;
-import com.airchinacargo.phoenix.domain.entity.YzTrade;
+import com.airchinacargo.phoenix.domain.entity.*;
 import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import org.json.JSONObject;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -135,7 +133,6 @@ public interface IJdService {
      *
      * @param accessToken 授权时获取的 access token
      * @param skuList     商品编号，请以，(英文逗号)分割(最高支持 100 个商品)。例如：129408,129409
-     *
      * @return JSONObject
      */
     JSONObject getSellPrice(String accessToken, String skuList);
@@ -171,4 +168,48 @@ public interface IJdService {
      * @return List<String>
      */
     List<String> getAllSellSku();
+
+    /**
+     * 发票提报
+     *
+     * @param accessToken             授权时获取的 access token
+     * @param supplierOrder           需要开发票的 子订单号，批量以，分割
+     * @param markId                  第三方申请单号：申请发票的唯一id标识 (该标记下可以对应多张发票信息)
+     * @param settlementId            结算单号（一个结算单号可对对应多个第三方申请单号）
+     * @param area                    京东四级地址的编码
+     * @param invoiceDate             期望开票时间 2013-11-8
+     * @param invoiceNum              当前批次子订单总数
+     * @param invoicePrice            当前批次含税总金额
+     * @param currentBatch            当前批次号
+     * @param totalBatch              总批次数
+     * @param totalBatchInvoiceAmount 总批次开发票价税合计
+     */
+    void invoiceSubmit(String accessToken, String supplierOrder, String markId, String settlementId, Map<String, Integer> area, String invoiceDate, int invoiceNum, BigDecimal invoicePrice, int currentBatch, int totalBatch, BigDecimal totalBatchInvoiceAmount);
+
+    /**
+     * 查询发票信息
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param markId      第三方申请单号：申请发票的唯一id标识 (该标记下可以对应多张发票信息)
+     */
+    void invoiceSelect(String accessToken, String markId);
+
+    /**
+     * 根据选择开票的系统订单编号 得到详细的京东子单列表
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param beginId     开始系统订单编码
+     * @param endId       结束系统订单编码
+     * @return needToInvoiceJdOrder 想要开票的京东子单列表
+     */
+    List<JdOrder> getNeedToInvoiceJdOrderList(String accessToken, int beginId, int endId);
+
+    /**
+     * 开取发票
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param beginId     开始系统订单编码
+     * @param endId       结束系统订单编码
+     */
+    void invoice(String accessToken, int beginId, int endId);
 }

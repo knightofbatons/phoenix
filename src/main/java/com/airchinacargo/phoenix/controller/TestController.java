@@ -103,4 +103,11 @@ public class TestController {
     public String getSellPrice(@PathVariable("skuList") String skuList) {
         return jdService.getSellPrice(jdService.readJdToken().getAccessToken(), skuList).toString();
     }
+
+    @RequestMapping(value = "/invoice/{beginId}/{endId}", method = RequestMethod.POST)
+    public void updateTid(@PathVariable("beginId") int beginId, @PathVariable("endId") int endId) {
+        //TODO 增加判断是否已经开票
+        jdService.invoice(jdService.getJdToken().getAccessToken(), beginId, endId);
+    }
+
 }

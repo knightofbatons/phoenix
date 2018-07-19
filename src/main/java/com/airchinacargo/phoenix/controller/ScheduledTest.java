@@ -114,7 +114,7 @@ public class ScheduledTest {
                     Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, jdToken);
                     // 如果获取地址正常
                     if (null != addressMap) {
-                        String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("city");
+                        String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("county");
                         List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
                         // 在京东下单并获得下单结果
                         SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, realSkuNum, addressMap);

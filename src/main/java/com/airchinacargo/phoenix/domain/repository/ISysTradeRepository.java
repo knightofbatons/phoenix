@@ -96,4 +96,15 @@ public interface ISysTradeRepository extends JpaRepository<SysTrade, Integer> {
      */
     @Transactional
     void deleteByIdAndSuccess(int id, boolean success);
+
+    /**
+     * 按照订单编码找出需要开取发票的系统订单
+     *
+     * @param beginId 开始系统订单编码
+     * @param endId   结束系统订单编码
+     * @param success 是否成功提交京东
+     * @param confirm 是否已经处理发货
+     * @return SysTrade 需要开票的系统订单
+     */
+    List<SysTrade> findByIdBetweenAndSuccessAndConfirm(int beginId, int endId, boolean success, boolean confirm);
 }

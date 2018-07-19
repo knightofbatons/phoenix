@@ -54,4 +54,13 @@ public class YzToJd {
     public void setNum(int num) {
         this.num = num;
     }
+
+    public YzToJd() {
+    }
+
+    public YzToJd(String itemId, String skuId, int num) {
+        this.itemId = itemId;
+        this.skuId = skuId;
+        this.num = num;
+    }
 }
