@@ -137,11 +137,15 @@ public class YzServiceImpl implements IYzService {
         } catch (UnirestException e) {
             e.printStackTrace();
         }
-        String tradesArray = response.getBody().getObject().getJSONObject("response").getJSONArray("trades").toString();
-        // 将获取的 json 转化后返回
-        Gson gson = new Gson();
-        return gson.fromJson(tradesArray, new TypeToken<List<YzTrade>>() {
-        }.getType());
+        try {
+            String tradesArray = response.getBody().getObject().getJSONObject("response").getJSONArray("trades").toString();
+            // 将获取的 json 转化后返回
+            Gson gson = new Gson();
+            return gson.fromJson(tradesArray, new TypeToken<List<YzTrade>>() {
+            }.getType());
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
