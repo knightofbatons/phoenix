@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -124,28 +125,38 @@ public class YzServiceImpl implements IYzService {
      */
     @Override
     public List<YzTrade> getYzTradesSold(String accessToken) {
-        HttpResponse<JsonNode> response = null;
-        try {
-            response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.trades.sold/3.0.0/get")
-                    .header("accept", "application/json")
-                    .header("Content-Type", "application/json")
-                    .queryString("status", "WAIT_SELLER_SEND_GOODS")
-                    .queryString("fields", FIELDS)
-                    .queryString("access_token", accessToken)
-                    .queryString("page_size", 100)
-                    .asJson();
-        } catch (UnirestException e) {
-            e.printStackTrace();
-        }
-        try {
+        int pageNo = 1;
+        boolean hasNext = true;
+        List<YzTrade> yzTradeList = new ArrayList<>();
+        // 如果有下一页
+        while (hasNext) {
+            HttpResponse<JsonNode> response = null;
+            try {
+                response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.trades.sold/3.0.0/get")
+                        .header("accept", "application/json")
+                        .header("Content-Type", "application/json")
+                        .queryString("status", "WAIT_SELLER_SEND_GOODS")
+                        .queryString("fields", FIELDS)
+                        .queryString("access_token", accessToken)
+                        .queryString("page_size", 20)
+                        .queryString("page_no", pageNo)
+                        .queryString("use_has_next", true)
+                        .asJson();
+            } catch (UnirestException e) {
+                e.printStackTrace();
+            }
+            //logger.info("[ getYzTradesSold ] --> API_RESPONSE: " + response.getBody());
+            // 更新是否有下一页
+            hasNext = response.getBody().getObject().getJSONObject("response").getBoolean("has_next");
+            pageNo++;
             String tradesArray = response.getBody().getObject().getJSONObject("response").getJSONArray("trades").toString();
             // 将获取的 json 转化后返回
             Gson gson = new Gson();
-            return gson.fromJson(tradesArray, new TypeToken<List<YzTrade>>() {
-            }.getType());
-        } catch (Exception e) {
-            return null;
+            yzTradeList.addAll(gson.fromJson(tradesArray, new TypeToken<List<YzTrade>>() {
+            }.getType()));
         }
+        logger.info("[ getYzTradesSold ] --> RETURN: yzTradeListSize: " + yzTradeList.size());
+        return yzTradeList;
     }
 
     /**

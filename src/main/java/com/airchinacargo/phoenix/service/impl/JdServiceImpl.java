@@ -219,9 +219,14 @@ public class JdServiceImpl implements IJdService {
             }
             response = getJDAddressFromLatLng(accessToken, addressMap);
         }
+        // 还是不成功也不处理了
+        isSuccess = response.getBody().getObject().getBoolean("success");
+        if (!isSuccess) {
+            return null;
+        }
         logger.info("[ getJdAddressFromAddress ] --> RESPONSE: " + response.getBody());
         // 成功的情况正常获取
-        Map<String, Integer> addressMap = new HashMap<>(4);
+        Map<String, Integer> addressMap = new HashMap<>(8);
         JSONObject addressObject = response.getBody().getObject().getJSONObject("result");
         addressMap.put("province", addressObject.getInt("provinceId"));
         addressMap.put("city", addressObject.getInt("cityId"));
@@ -286,7 +291,7 @@ public class JdServiceImpl implements IJdService {
         }
         try {
             JSONObject latLngObject = response.getBody().getObject().getJSONObject("result").getJSONObject("location");
-            Map<String, Double> latLngMap = new HashMap<>(2);
+            Map<String, Double> latLngMap = new HashMap<>(4);
             latLngMap.put("lat", latLngObject.getDouble("lat"));
             latLngMap.put("lng", latLngObject.getDouble("lng"));
             logger.info("[ getLatLngFromAddress ] --> RETURN: latLngMap: " + latLngMap);
@@ -428,13 +433,24 @@ public class JdServiceImpl implements IJdService {
     @Override
     public SysTrade submitOrder(String accessToken, YzTrade yzTrade, List<SkuNum> skuNum, Map<String, Integer> area) {
         String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
-        // 判断是不是有缺货商品的所有可替代都缺货
-        if (-1 == skuNum.get(0).getNum()) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换 " + skuNum.get(0).getSkuId(), 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
-        }
         // 判断是不是实际花钱购买的 最多付款
         if (PAYMENT_MAX < yzTrade.getPayment()) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "此订单是实际付款订单", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, "NO_COUPONS_USED");
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "此订单是实际付款订单", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, "NO_COUPONS_USED", 0);
+        }
+        // 判断是不是有缺货商品的所有可替代都缺货
+        if (-1 == skuNum.get(0).getNum()) {
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换 " + skuNum.get(0).getSkuId(), 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), 0);
+        }
+        // TODO 暂时这么做解决问题 之后需要调用接口判断商品是否可以开增票
+        // 判断是不是不能开增票
+        int invoiceType = 2;
+        String remark = "";
+        for (SkuNum skuNum1 : skuNum) {
+            // 如果包含鸡蛋就开普票
+            if ("2108919".equals(skuNum1.getSkuId()) || "3158880".equals(skuNum1.getSkuId()) || "7638405".equals(skuNum1.getSkuId()) || "2769437".equals(skuNum1.getSkuId())) {
+                invoiceType = 1;
+                remark = "除鸡蛋外商品需要开增值税专用发票";
+            }
         }
         HttpResponse<JsonNode> response = null;
         try {
@@ -451,10 +467,11 @@ public class JdServiceImpl implements IJdService {
                     .queryString("address", yzTrade.getReceiverAddress())
                     .queryString("mobile", yzTrade.getReceiverMobile())
                     .queryString("email", email)
+                    .queryString("remark", remark)
                     // 订单开票方式 集中开票
                     .queryString("invoiceState", 2)
                     //发票类型 增值税发票
-                    .queryString("invoiceType", 2)
+                    .queryString("invoiceType", invoiceType)
                     // 发票类型 单位
                     .queryString("selectedInvoiceTitle", 5)
                     // 发票抬头 国航投资控股有限公司
@@ -480,11 +497,11 @@ public class JdServiceImpl implements IJdService {
         String resultMessage = reJsonObject.getString("resultMessage");
         // 如果下单失败
         if (!isSuccess) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), 0);
         }
         // 下单成功
         JSONObject result = reJsonObject.getJSONObject("result");
-        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName());
+        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), invoiceType);
     }
 
     /**
@@ -820,7 +837,7 @@ public class JdServiceImpl implements IJdService {
                 needToInvoiceJdOrderList.add(jdOrder);
             }
         }
-        logger.info("[ getNeedToInvoiceJdOrderList ] --> RETURN: needToInvoiceJdOrderList: " + needToInvoiceJdOrderList);
+        logger.info("[ getNeedToInvoiceJdOrderList ] --> RETURN: needToInvoiceJdOrderList: " + needToInvoiceJdOrderList.size());
         return needToInvoiceJdOrderList;
     }
 
@@ -828,7 +845,7 @@ public class JdServiceImpl implements IJdService {
      * INVOICE_NUM_MAX 单批次最大子订单数
      * DELIVERED_STATE 京东物流状态 已投妥
      */
-    private final int INVOICE_NUM_MAX = 30;
+    private final int INVOICE_NUM_MAX = 300;
     private final int DELIVERED_STATE = 1;
 
     /**
@@ -866,39 +883,32 @@ public class JdServiceImpl implements IJdService {
         int fromIndex;
         // 单批次结束位置
         int toIndex;
-
         // 计算总批次数
         if (totalOrderNum <= INVOICE_NUM_MAX) {
             totalBatch = 1;
         } else {
             totalBatch = totalOrderNum % invoiceNum > 0 ? totalOrderNum / invoiceNum + 1 : totalOrderNum / invoiceNum;
         }
-        logger.info("总批次数:" + totalBatch);
-
-
+        logger.info("[ invoice ] --> 总批次数:" + totalBatch);
         // 计算总批次开发票价税合计
         BigDecimal freight = new BigDecimal(0);
-        for (JdOrder jdOrder : needToInvoiceJdOrderList) {
-            freight = freight.add(jdOrder.getFreight());
-        }
-        logger.info("总批次运费合计:" + freight);
         BigDecimal totalBatchInvoiceAmount = new BigDecimal(0);
         for (JdOrder jdOrder : needToInvoiceJdOrderList) {
+            freight = freight.add(jdOrder.getFreight());
             totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(jdOrder.getOrderPrice());
         }
-        logger.info("没有加运费:" + totalBatchInvoiceAmount);
         totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(freight);
-        logger.info("总批次开发票价税合计:" + totalBatchInvoiceAmount);
-
+        logger.info("[ invoice ] --> 总批次开发票价税合计:" + totalBatchInvoiceAmount);
         // 获取地址编码
         Map<String, Integer> area = this.getJdAddressFromAddress(billToCityAndCounty + billToAddress, accessToken);
-
         // 京东需要的时间格式
         Date today = new Date();
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd");
         String timestamp = simpleDateFormat.format(today);
         // 结算单号
         String settlementId = timestamp + "/" + beginId + "-" + endId + "-A-" + totalBatch;
+        // 第三方申请单号
+        String markId = timestamp + "/" + beginId + "-" + endId + "-N-" + totalBatch;
         // 分批开取发票
         for (int i = 0; i < totalBatch; i++) {
             // 计算当前批次开始和结束位置
@@ -919,22 +929,15 @@ public class JdServiceImpl implements IJdService {
             String supplierOrder = StringUtils.stripFrontBack(jdOrderIdList.toString(), "[", "]").replaceAll(" ", "");
             // 计算当前批次含税总金额
             BigDecimal currentFreight = new BigDecimal(0);
-            for (JdOrder jdOrder : jdOrderList) {
-                currentFreight = currentFreight.add(jdOrder.getFreight());
-            }
-            logger.info("运费:" + currentFreight);
             BigDecimal invoicePrice = new BigDecimal(0);
             for (JdOrder jdOrder : jdOrderList) {
+                currentFreight = currentFreight.add(jdOrder.getFreight());
                 invoicePrice = invoicePrice.add(jdOrder.getOrderPrice());
             }
-            logger.info("没有加运费:" + invoicePrice);
             invoicePrice = invoicePrice.add(currentFreight);
-            logger.info("加运费:" + invoicePrice);
+            logger.info("[ invoice ] --> 当前批次开发票价税合计:" + invoicePrice);
             // 计算当前批次号
             int currentBatch = i + 1;
-            // 第三方申请单号
-            String markId = timestamp + "/" + beginId + "-" + endId + "-N-" + currentBatch;
-
             // 调用申请开票接口
             this.invoiceSubmit(accessToken, supplierOrder, markId, settlementId, area, timestamp, invoiceNum, invoicePrice, currentBatch, totalBatch, totalBatchInvoiceAmount);
         }
@@ -943,6 +946,40 @@ public class JdServiceImpl implements IJdService {
                 .collect(toList());
         String errorOrders = StringUtils.stripFrontBack(errorNeedToInvoiceJdOrderId.toString(), "[", "]").replaceAll(" ", "");
         // 存储本次结算
-        invoiceRepository.save(new Invoice(settlementId, beginId, endId, today, totalBatch, errorOrders));
+        invoiceRepository.save(new Invoice(settlementId, beginId, endId, today, totalBatch, errorOrders, freight));
+    }
+
+    /**
+     * 测试开取发票准备入参 显示信息 但是不开发票
+     *
+     * @param accessToken 授权时获取的 access token
+     * @param beginId     开始系统订单编码
+     * @param endId       结束系统订单编码
+     */
+    @Override
+    public void invoiceTest(String accessToken, int beginId, int endId) {
+        // 获取待处理子订单列表
+        List<JdOrder> needToInvoiceJdOrderList = this.getNeedToInvoiceJdOrderList(accessToken, beginId, endId);
+        // 过滤掉未投妥订单
+        List<JdOrder> errorNeedToInvoiceJdOrderList = needToInvoiceJdOrderList.stream()
+                .filter(p -> DELIVERED_STATE != p.getState())
+                .collect(toList());
+        needToInvoiceJdOrderList.removeAll(errorNeedToInvoiceJdOrderList);
+        // 计算总批次开发票价税合计
+        BigDecimal freight = new BigDecimal(0);
+        BigDecimal totalBatchInvoiceAmount = new BigDecimal(0);
+        for (JdOrder jdOrder : needToInvoiceJdOrderList) {
+            freight = freight.add(jdOrder.getFreight());
+            totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(jdOrder.getOrderPrice());
+        }
+        logger.info("[ invoiceTest ] --> 总批次开发票运费合计:" + freight);
+        logger.info("[ invoiceTest ] --> 总批次开发票除运费价税合计:" + totalBatchInvoiceAmount);
+        totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(freight);
+        logger.info("[ invoiceTest ] --> 总批次开发票价税合计:" + totalBatchInvoiceAmount);
+        List<Long> errorNeedToInvoiceJdOrderId = errorNeedToInvoiceJdOrderList.stream()
+                .map(p -> p.getJdOrderId())
+                .collect(toList());
+        String errorOrders = StringUtils.stripFrontBack(errorNeedToInvoiceJdOrderId.toString(), "[", "]").replaceAll(" ", "");
+        logger.info("[ invoiceTest ] --> 总批次未投妥订单:" + errorOrders);
     }
 }

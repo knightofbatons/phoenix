@@ -41,6 +41,8 @@ public class SysTrade {
     private String receiverAddress;
     @Column(name = "coupon")
     private String coupon;
+    @Column(name = "invoice_type")
+    private int invoiceType;
 
 
     /**
@@ -49,7 +51,7 @@ public class SysTrade {
     public SysTrade() {
     }
 
-    public SysTrade(String tid, String jdOrderId, Date dueDate, String resultMessage, double price, boolean success, boolean confirm, String receiverName, String receiverMobile, String receiverAddress, String coupon) {
+    public SysTrade(String tid, String jdOrderId, Date dueDate, String resultMessage, double price, boolean success, boolean confirm, String receiverName, String receiverMobile, String receiverAddress, String coupon, int invoiceType) {
         this.tid = tid;
         this.jdOrderId = jdOrderId;
         this.dueDate = dueDate;
@@ -61,6 +63,7 @@ public class SysTrade {
         this.receiverMobile = receiverMobile;
         this.receiverAddress = receiverAddress;
         this.coupon = coupon;
+        this.invoiceType = invoiceType;
     }
 
     public int getId() {
@@ -159,21 +162,44 @@ public class SysTrade {
         this.coupon = coupon;
     }
 
+    public int getInvoiceType() {
+        return invoiceType;
+    }
+
+    public void setInvoiceType(int invoiceType) {
+        this.invoiceType = invoiceType;
+    }
+
     @Override
     public String toString() {
-        return "SysTrade{" +
-                "id=" + id +
-                ", tid='" + tid + '\'' +
-                ", jdOrderId='" + jdOrderId + '\'' +
-                ", dueDate=" + dueDate +
-                ", resultMessage='" + resultMessage + '\'' +
-                ", price=" + price +
-                ", success=" + success +
-                ", confirm=" + confirm +
-                ", receiverName='" + receiverName + '\'' +
-                ", receiverMobile='" + receiverMobile + '\'' +
-                ", receiverAddress='" + receiverAddress + '\'' +
-                ", coupon='" + coupon + '\'' +
-                '}';
+        final StringBuilder sb = new StringBuilder("{");
+        sb.append("\"id\":")
+                .append(id);
+        sb.append(",\"tid\":\"")
+                .append(tid).append('\"');
+        sb.append(",\"jdOrderId\":\"")
+                .append(jdOrderId).append('\"');
+        sb.append(",\"dueDate\":\"")
+                .append(dueDate).append('\"');
+        sb.append(",\"resultMessage\":\"")
+                .append(resultMessage).append('\"');
+        sb.append(",\"price\":")
+                .append(price);
+        sb.append(",\"success\":")
+                .append(success);
+        sb.append(",\"confirm\":")
+                .append(confirm);
+        sb.append(",\"receiverName\":\"")
+                .append(receiverName).append('\"');
+        sb.append(",\"receiverMobile\":\"")
+                .append(receiverMobile).append('\"');
+        sb.append(",\"receiverAddress\":\"")
+                .append(receiverAddress).append('\"');
+        sb.append(",\"coupon\":\"")
+                .append(coupon).append('\"');
+        sb.append(",\"invoiceType\":")
+                .append(invoiceType);
+        sb.append('}');
+        return sb.toString();
     }
 }

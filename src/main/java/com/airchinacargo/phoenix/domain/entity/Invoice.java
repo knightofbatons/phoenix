@@ -1,6 +1,7 @@
 package com.airchinacargo.phoenix.domain.entity;
 
 import javax.persistence.*;
+import java.math.BigDecimal;
 import java.util.Date;
 
 /**
@@ -27,6 +28,8 @@ public class Invoice {
     private int totalBatch;
     @Column(name = "error_orders")
     private String errorOrders;
+    @Column(name = "freight")
+    private BigDecimal freight;
 
     public int getId() {
         return id;
@@ -84,12 +87,13 @@ public class Invoice {
         this.errorOrders = errorOrders;
     }
 
-    public Invoice(String settlementId, int beginId, int endId, Date timestamp, int totalBatch, String errorOrders) {
+    public Invoice(String settlementId, int beginId, int endId, Date timestamp, int totalBatch, String errorOrders, BigDecimal freight) {
         this.settlementId = settlementId;
         this.beginId = beginId;
         this.endId = endId;
         this.timestamp = timestamp;
         this.totalBatch = totalBatch;
         this.errorOrders = errorOrders;
+        this.freight = freight;
     }
 }

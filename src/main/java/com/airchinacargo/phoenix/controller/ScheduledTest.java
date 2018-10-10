@@ -98,32 +98,33 @@ public class ScheduledTest {
                 }
             }
         }
-
         // 获取有赞所有付款未发货订单 （取最新至多100条）
         List<YzTrade> yzTradeList = yzService.getYzTradesSold(yzToken);
-        // 遍历这些订单
-        for (YzTrade yzTrade : yzTradeList) {
-            // 如果没有之前处理过的记录
-            if (!sysTradeRepository.findByTid(yzTrade.getTid()).isPresent()) {
-                // 根据有赞京东商品对应关系获取计划购买商品数量列表
-                List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
-                // 判断这个订单是否需要处理 （订单内至少包含一个对应的商品，且少于六个）
-                if (planSkuNum.size() > 0 && planSkuNum.size() < 6) {
-                    // 准备下单需要的参数
-                    String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
-                    Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, jdToken);
-                    // 如果获取地址正常
-                    if (null != addressMap) {
-                        String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("county");
-                        List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
-                        // 在京东下单并获得下单结果
-                        SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, realSkuNum, addressMap);
-                        // 无论下单成功与否保存处理记录到数据库
-                        logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
-                        sysTradeRepository.save(sysTrade);
-                    } else {
-                        // 处理地址不正常订单记录到数据库
-                        sysTradeRepository.save(new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "地址无法解析", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName()));
+        // 如果不为空遍历这些订单
+        if (null != yzTradeList) {
+            for (YzTrade yzTrade : yzTradeList) {
+                // 如果没有之前处理过的记录
+                if (!sysTradeRepository.findByTid(yzTrade.getTid()).isPresent()) {
+                    // 根据有赞京东商品对应关系获取计划购买商品数量列表
+                    List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
+                    // 判断这个订单是否需要处理 （订单内至少包含一个对应的商品，且少于六个）
+                    if (planSkuNum.size() > 0 && planSkuNum.size() < 6) {
+                        // 准备下单需要的参数
+                        String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
+                        Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, jdToken);
+                        // 如果获取地址正常
+                        if (null != addressMap) {
+                            String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("county");
+                            List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
+                            // 在京东下单并获得下单结果
+                            SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, realSkuNum, addressMap);
+                            // 无论下单成功与否保存处理记录到数据库
+                            logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
+                            sysTradeRepository.save(sysTrade);
+                        } else {
+                            // 处理地址不正常订单记录到数据库
+                            sysTradeRepository.save(new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "地址无法解析", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), 0));
+                        }
                     }
                 }
             }

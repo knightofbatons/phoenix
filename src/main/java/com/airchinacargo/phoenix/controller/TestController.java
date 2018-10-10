@@ -75,7 +75,7 @@ public class TestController {
     }
 
     @RequestMapping(value = "/getMessage", method = RequestMethod.GET)
-    public String getMessage(@RequestParam(value = "type", defaultValue = "14,15") String type) {
+    public String getMessage(@RequestParam(value = "type", defaultValue = "7,14,15") String type) {
         return jdService.messageGet(jdService.readJdToken().getAccessToken(), type).toString();
     }
 
@@ -105,9 +105,17 @@ public class TestController {
     }
 
     @RequestMapping(value = "/invoice/{beginId}/{endId}", method = RequestMethod.POST)
-    public void updateTid(@PathVariable("beginId") int beginId, @PathVariable("endId") int endId) {
-        //TODO 增加判断是否已经开票
-        jdService.invoice(jdService.getJdToken().getAccessToken(), beginId, endId);
+    public void invoice(@PathVariable("beginId") int beginId, @PathVariable("endId") int endId) {
+        jdService.invoice(jdService.readJdToken().getAccessToken(), beginId, endId);
     }
 
+    @RequestMapping(value = "/invoiceTest/{beginId}/{endId}", method = RequestMethod.POST)
+    public void invoiceSituation(@PathVariable("beginId") int beginId, @PathVariable("endId") int endId) {
+        jdService.invoiceTest(jdService.readJdToken().getAccessToken(), beginId, endId);
+    }
+
+    @RequestMapping(value = "/sysTrade/{beginId}/{endId}/{success}/{confirm}", method = RequestMethod.GET)
+    public List<SysTrade> getSysTrade(@PathVariable("beginId") int beginId, @PathVariable("endId") int endId, @PathVariable("success") boolean success, @PathVariable("confirm") boolean confirm) {
+        return sysTradeRepository.findByIdBetweenAndSuccessAndConfirm(beginId, endId, success, confirm);
+    }
 }
