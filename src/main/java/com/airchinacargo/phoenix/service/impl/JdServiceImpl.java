@@ -130,14 +130,14 @@ public class JdServiceImpl implements IJdService {
     @Override
     public Token readJdToken() {
         // 从数据库读取 存在赋值不存在就去请求
-        Token yzToken = tokenRepository.findById(JD).orElseGet(this::getJdToken);
+        Token jdToken = tokenRepository.findById(JD).orElseGet(this::getJdToken);
         // 是当天的直接返回
-        if (isToday(yzToken.getDate())) {
-            return yzToken;
+        if (isToday(jdToken.getDate())) {
+            return jdToken;
         }
         // 不是当天的调用刷新函数
         logger.info("[ readJdToken ] --> refresh JD token");
-        return refreshJdToken(yzToken.getRefreshToken());
+        return refreshJdToken(jdToken.getRefreshToken());
     }
 
     /**
@@ -213,16 +213,26 @@ public class JdServiceImpl implements IJdService {
         boolean isSuccess = response.getBody().getObject().getBoolean("success");
         if (!isSuccess) {
             // 不行就百度根据详细获取经纬度 再京东根据经纬度获取地址编码 百度也拿不到就不处理了
-            Map<String, Double> addressMap = getLatLngFromAddress(address);
-            if (null == addressMap) {
+            Map<String, Double> latLngMap = getLatLngFromAddress(address);
+            if (null == latLngMap) {
                 return null;
             }
-            response = getJDAddressFromLatLng(accessToken, addressMap);
-        }
-        // 还是不成功也不处理了
-        isSuccess = response.getBody().getObject().getBoolean("success");
-        if (!isSuccess) {
-            return null;
+            response = getJDAddressFromLatLng(accessToken, latLngMap);
+            // 还是不成功也不处理了
+            isSuccess = response.getBody().getObject().getBoolean("success");
+            if (!isSuccess) {
+                return null;
+            }
+            // 成功的情况正常获取
+            Map<String, Integer> addressMap = new HashMap<>(8);
+            JSONObject addressObject = response.getBody().getObject().getJSONObject("result");
+            addressMap.put("province", addressObject.getInt("provinceId"));
+            addressMap.put("city", addressObject.getInt("cityId"));
+            // 京东地址有可能不存在第三四级地址
+            addressMap.put("county", "".endsWith(addressObject.getString("countyId")) ? 0 : addressObject.getInt("countyId"));
+            addressMap.put("town", "".endsWith(addressObject.getString("townId")) ? 0 : addressObject.getInt("townId"));
+            logger.info("[ getJdAddressFromAddress ] --> RETURN: addressMap: " + addressMap);
+            return addressMap;
         }
         logger.info("[ getJdAddressFromAddress ] --> RESPONSE: " + response.getBody());
         // 成功的情况正常获取
@@ -231,8 +241,8 @@ public class JdServiceImpl implements IJdService {
         addressMap.put("province", addressObject.getInt("provinceId"));
         addressMap.put("city", addressObject.getInt("cityId"));
         // 京东地址有可能不存在第三四级地址
-        addressMap.put("county", addressObject.isNull("countyId") || addressObject.getString("countyId").isEmpty() || "null".equals(addressObject.getString("countyId")) ? 0 : addressObject.getInt("countyId"));
-        addressMap.put("town", addressObject.isNull("townId") || addressObject.getString("townId").isEmpty() || "null".equals(addressObject.getString("townId")) ? 0 : addressObject.getInt("townId"));
+        addressMap.put("county", addressObject.isNull("countyId") ? 0 : addressObject.getInt("countyId"));
+        addressMap.put("town", addressObject.isNull("townId") ? 0 : addressObject.getInt("townId"));
         logger.info("[ getJdAddressFromAddress ] --> RETURN: addressMap: " + addressMap);
         return addressMap;
     }
@@ -410,7 +420,13 @@ public class JdServiceImpl implements IJdService {
         return skuNum;
     }
 
-
+    /**
+     * 从配置文件读取的发票有关信息
+     */
+    @Value("${INVOICE.TITLE}")
+    private String rowTitle;
+    @Value("${INVOICE.ENTERPRISE_TAXPAYER}")
+    private String enterpriseTaxpayer;
     /**
      * 下单需要的参数
      * <p>
@@ -419,7 +435,10 @@ public class JdServiceImpl implements IJdService {
      */
     @Value("${Fh.EMAIL}")
     private String email;
-    private final Double PAYMENT_MAX = 20.0;
+    @Value("${SYS.PAYMENT_MAX}")
+    private Double PAYMENT_MAX;
+    @Value("${INVOICE.TYPE}")
+    private int INVOICE_TYPE;
 
     /**
      * 在京东下单
@@ -432,6 +451,13 @@ public class JdServiceImpl implements IJdService {
      */
     @Override
     public SysTrade submitOrder(String accessToken, YzTrade yzTrade, List<SkuNum> skuNum, Map<String, Integer> area) {
+        // SpringBoot 2.0 暂且存在从配置文件中读取中文乱码的问题 SpringBoot 1.x 的解决办法无效 所以在这里转码
+        String title = null;
+        try {
+            title = new String(rowTitle.getBytes("ISO-8859-1"), "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
         String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
         // 判断是不是实际花钱购买的 最多付款
         if (PAYMENT_MAX < yzTrade.getPayment()) {
@@ -439,18 +465,7 @@ public class JdServiceImpl implements IJdService {
         }
         // 判断是不是有缺货商品的所有可替代都缺货
         if (-1 == skuNum.get(0).getNum()) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换 " + skuNum.get(0).getSkuId(), 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), 0);
-        }
-        // TODO 暂时这么做解决问题 之后需要调用接口判断商品是否可以开增票
-        // 判断是不是不能开增票
-        int invoiceType = 2;
-        String remark = "";
-        for (SkuNum skuNum1 : skuNum) {
-            // 如果包含鸡蛋就开普票
-            if ("2108919".equals(skuNum1.getSkuId()) || "3158880".equals(skuNum1.getSkuId()) || "7638405".equals(skuNum1.getSkuId()) || "2769437".equals(skuNum1.getSkuId())) {
-                invoiceType = 1;
-                remark = "除鸡蛋外商品需要开增值税专用发票";
-            }
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "存在商品缺货且不能替换 " + skuNum.get(0).getSkuId(), 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().size() != 0 ? yzTrade.getCoupons().get(0).getCouponName() : "NO_COUPONS_USED", 0);
         }
         HttpResponse<JsonNode> response = null;
         try {
@@ -467,25 +482,28 @@ public class JdServiceImpl implements IJdService {
                     .queryString("address", yzTrade.getReceiverAddress())
                     .queryString("mobile", yzTrade.getReceiverMobile())
                     .queryString("email", email)
-                    .queryString("remark", remark)
                     // 订单开票方式 集中开票
                     .queryString("invoiceState", 2)
-                    //发票类型 增值税发票
-                    .queryString("invoiceType", invoiceType)
+                    //发票类型 增值税发票 1 普通发票 2 增值税发票 3 电子发票
+                    .queryString("invoiceType", INVOICE_TYPE)
                     // 发票类型 单位
                     .queryString("selectedInvoiceTitle", 5)
-                    // 发票抬头 国航投资控股有限公司
-                    .queryString("companyName", "国航投资控股有限公司")
+                    // 发票抬头 北京中外运华力物流有限公司
+                    .queryString("companyName", title)
                     // 增值税发票只能选择 明细
                     .queryString("invoiceContent", 1)
                     // 支付方式 余额支付
                     .queryString("paymentType", 4)
                     // 余额支付方式 固定选择使用余额
                     .queryString("isUseBalance", 1)
-                    // 不预占库存
+                    // 是否不预占库存 ，0 是预占库存（需要调用确认订单接口），1 是 不预占库存
                     .queryString("submitState", 1)
                     // 不做价格对比
                     .queryString("doOrderPriceMode", 0)
+                    // 纳税人识别号
+                    .queryString("regCode", enterpriseTaxpayer)
+                    // 增值票收票人电话
+                    .queryString("invoicePhone", "18515377212")
                     .asJson();
         } catch (UnirestException e) {
             e.printStackTrace();
@@ -497,11 +515,11 @@ public class JdServiceImpl implements IJdService {
         String resultMessage = reJsonObject.getString("resultMessage");
         // 如果下单失败
         if (!isSuccess) {
-            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), 0);
+            return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), resultMessage, 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().size() != 0 ? yzTrade.getCoupons().get(0).getCouponName() : "NO_COUPONS_USED", 0);
         }
         // 下单成功
         JSONObject result = reJsonObject.getJSONObject("result");
-        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), invoiceType);
+        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().size() != 0 ? yzTrade.getCoupons().get(0).getCouponName() : "NO_COUPONS_USED", INVOICE_TYPE);
     }
 
     /**
@@ -689,10 +707,6 @@ public class JdServiceImpl implements IJdService {
     /**
      * 从配置文件读取的发票有关信息
      */
-    @Value("${INVOICE.TITLE}")
-    private String rowTitle;
-    @Value("${INVOICE.ENTERPRISE_TAXPAYER}")
-    private String enterpriseTaxpayer;
     @Value("${INVOICE.BILL_TO_ER}")
     private String rowBillToEr;
     @Value("${INVOICE.BILL_TO_CONTACT}")
@@ -946,40 +960,7 @@ public class JdServiceImpl implements IJdService {
                 .collect(toList());
         String errorOrders = StringUtils.stripFrontBack(errorNeedToInvoiceJdOrderId.toString(), "[", "]").replaceAll(" ", "");
         // 存储本次结算
-        invoiceRepository.save(new Invoice(settlementId, beginId, endId, today, totalBatch, errorOrders, freight));
+        invoiceRepository.save(new Invoice(markId, beginId, endId, today, totalBatch, errorOrders, freight));
     }
 
-    /**
-     * 测试开取发票准备入参 显示信息 但是不开发票
-     *
-     * @param accessToken 授权时获取的 access token
-     * @param beginId     开始系统订单编码
-     * @param endId       结束系统订单编码
-     */
-    @Override
-    public void invoiceTest(String accessToken, int beginId, int endId) {
-        // 获取待处理子订单列表
-        List<JdOrder> needToInvoiceJdOrderList = this.getNeedToInvoiceJdOrderList(accessToken, beginId, endId);
-        // 过滤掉未投妥订单
-        List<JdOrder> errorNeedToInvoiceJdOrderList = needToInvoiceJdOrderList.stream()
-                .filter(p -> DELIVERED_STATE != p.getState())
-                .collect(toList());
-        needToInvoiceJdOrderList.removeAll(errorNeedToInvoiceJdOrderList);
-        // 计算总批次开发票价税合计
-        BigDecimal freight = new BigDecimal(0);
-        BigDecimal totalBatchInvoiceAmount = new BigDecimal(0);
-        for (JdOrder jdOrder : needToInvoiceJdOrderList) {
-            freight = freight.add(jdOrder.getFreight());
-            totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(jdOrder.getOrderPrice());
-        }
-        logger.info("[ invoiceTest ] --> 总批次开发票运费合计:" + freight);
-        logger.info("[ invoiceTest ] --> 总批次开发票除运费价税合计:" + totalBatchInvoiceAmount);
-        totalBatchInvoiceAmount = totalBatchInvoiceAmount.add(freight);
-        logger.info("[ invoiceTest ] --> 总批次开发票价税合计:" + totalBatchInvoiceAmount);
-        List<Long> errorNeedToInvoiceJdOrderId = errorNeedToInvoiceJdOrderList.stream()
-                .map(p -> p.getJdOrderId())
-                .collect(toList());
-        String errorOrders = StringUtils.stripFrontBack(errorNeedToInvoiceJdOrderId.toString(), "[", "]").replaceAll(" ", "");
-        logger.info("[ invoiceTest ] --> 总批次未投妥订单:" + errorOrders);
-    }
 }

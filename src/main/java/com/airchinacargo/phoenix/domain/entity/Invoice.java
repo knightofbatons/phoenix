@@ -17,7 +17,7 @@ public class Invoice {
     @Column(name = "id")
     private int id;
     @Column(name = "settlement_id")
-    private String settlementId;
+    private String markId;
     @Column(name = "begin_id")
     private int beginId;
     @Column(name = "end_id")
@@ -39,12 +39,20 @@ public class Invoice {
         this.id = id;
     }
 
-    public String getSettlementId() {
-        return settlementId;
+    public String getMarkId() {
+        return markId;
     }
 
-    public void setSettlementId(String settlementId) {
-        this.settlementId = settlementId;
+    public void setMarkId(String markId) {
+        this.markId = markId;
+    }
+
+    public BigDecimal getFreight() {
+        return freight;
+    }
+
+    public void setFreight(BigDecimal freight) {
+        this.freight = freight;
     }
 
     public int getBeginId() {
@@ -87,8 +95,8 @@ public class Invoice {
         this.errorOrders = errorOrders;
     }
 
-    public Invoice(String settlementId, int beginId, int endId, Date timestamp, int totalBatch, String errorOrders, BigDecimal freight) {
-        this.settlementId = settlementId;
+    public Invoice(String markId, int beginId, int endId, Date timestamp, int totalBatch, String errorOrders, BigDecimal freight) {
+        this.markId = markId;
         this.beginId = beginId;
         this.endId = endId;
         this.timestamp = timestamp;

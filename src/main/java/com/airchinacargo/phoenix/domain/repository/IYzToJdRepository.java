@@ -3,6 +3,7 @@ package com.airchinacargo.phoenix.domain.repository;
 import com.airchinacargo.phoenix.domain.entity.YzToJd;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -16,7 +17,7 @@ public interface IYzToJdRepository extends JpaRepository<YzToJd, Integer> {
      * @param itemId 有赞商品编号
      * @return Optional<YzToJd> 对应关系
      */
-    Optional<YzToJd> findByItemId(String itemId);
+    List<YzToJd> findByItemId(String itemId);
 
     /**
      * 根据 skuId 和 num 找到对应关系

@@ -63,4 +63,19 @@ public class YzToJd {
         this.skuId = skuId;
         this.num = num;
     }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("{");
+        sb.append("\"id\":")
+                .append(id);
+        sb.append(",\"itemId\":\"")
+                .append(itemId).append('\"');
+        sb.append(",\"skuId\":\"")
+                .append(skuId).append('\"');
+        sb.append(",\"num\":")
+                .append(num);
+        sb.append('}');
+        return sb.toString();
+    }
 }

@@ -213,12 +213,4 @@ public interface IJdService {
      */
     void invoice(String accessToken, int beginId, int endId);
 
-    /**
-     * 测试开取发票准备入参 显示信息 但是不开发票
-     *
-     * @param accessToken 授权时获取的 access token
-     * @param beginId     开始系统订单编码
-     * @param endId       结束系统订单编码
-     */
-    void invoiceTest(String accessToken, int beginId, int endId);
 }

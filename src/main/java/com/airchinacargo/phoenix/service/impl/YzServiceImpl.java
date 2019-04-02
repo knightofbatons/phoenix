@@ -132,6 +132,7 @@ public class YzServiceImpl implements IYzService {
         while (hasNext) {
             HttpResponse<JsonNode> response = null;
             try {
+                //TODO 需要更新到有赞接口 4.0.0
                 response = Unirest.get("https://open.youzan.com/api/oauthentry/youzan.trades.sold/3.0.0/get")
                         .header("accept", "application/json")
                         .header("Content-Type", "application/json")
@@ -145,7 +146,6 @@ public class YzServiceImpl implements IYzService {
             } catch (UnirestException e) {
                 e.printStackTrace();
             }
-            //logger.info("[ getYzTradesSold ] --> API_RESPONSE: " + response.getBody());
             // 更新是否有下一页
             hasNext = response.getBody().getObject().getJSONObject("response").getBoolean("has_next");
             pageNo++;
@@ -190,6 +190,21 @@ public class YzServiceImpl implements IYzService {
         }
     }
 
+    private List<YzToJd> addAndReturnYzToJdList(List<YzToJd> allYzToJd, List<YzToJd> yzToJdPacket) {
+        allYzToJd.addAll(yzToJdPacket);
+        return allYzToJd;
+    }
+
+
+    private List<YzToJd> addOrderNum(int orderNum, List<YzToJd> yzToJdList) {
+        if (0 != yzToJdList.size()) {
+            for (YzToJd yzToJd : yzToJdList) {
+                yzToJd.setNum(yzToJd.getNum() * orderNum);
+            }
+        }
+        return yzToJdList;
+    }
+
     /**
      * 通过有赞订单获取计划在京东购买的商品和数量
      *
@@ -201,11 +216,10 @@ public class YzServiceImpl implements IYzService {
         List<YzOrder> yzOrderList = yzTrade.getOrders();
         return yzOrderList
                 .stream()
-                //有赞订单中的数量乘以数据库中的数量得到最终数量
-                //.map(p -> new YzToJd(null,yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()).getSkuId(),p.getOrderNum()*yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()).getNum()))
-                //直接从数据库中获取数量
-                .map(p -> yzToJdRepository.findByItemId(p.getItemId()).orElseGet(() -> new YzToJd()))
-                .filter(p -> p.getSkuId() != null)
+                .map(p -> addOrderNum(p.getOrderNum(), yzToJdRepository.findByItemId(p.getItemId())))
+                .filter(p -> 0 != p.size())
+                .reduce(new ArrayList<>(), (allYzToJd, yzToJdPacket) -> addAndReturnYzToJdList(allYzToJd, yzToJdPacket))
+                .stream()
                 .map(p -> new SkuNum(p.getSkuId(), p.getNum()))
                 .collect(toList());
     }

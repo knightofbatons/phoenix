@@ -43,22 +43,6 @@ public interface ISysTradeRepository extends JpaRepository<SysTrade, Integer> {
     Optional<List<SysTrade>> findBySuccessAndConfirm(boolean success, boolean confirm);
 
     /**
-     * 根据收货人姓名查询系统订单
-     *
-     * @param receiverName 收货人姓名
-     * @return Optional
-     */
-    Optional<List<SysTrade>> findByReceiverName(String receiverName);
-
-    /**
-     * 根据收货人电话查询系统订单
-     *
-     * @param receiverMobile 收货人电话
-     * @return Optional
-     */
-    Optional<List<SysTrade>> findByReceiverMobile(String receiverMobile);
-
-    /**
      * 根据收货人电话或姓名或京东订单编号查询系统订单
      *
      * @param receiverMobile 收货人电话

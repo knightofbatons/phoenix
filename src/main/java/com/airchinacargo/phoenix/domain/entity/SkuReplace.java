@@ -1,9 +1,6 @@
 package com.airchinacargo.phoenix.domain.entity;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 
 /**
  * 缺货替代关系
@@ -14,6 +11,7 @@ import javax.persistence.Table;
 @Table(name = "sku_replace")
 public class SkuReplace {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private int id;
     @Column(name = "before_num")
@@ -63,5 +61,22 @@ public class SkuReplace {
 
     public void setAfterSku(String afterSku) {
         this.afterSku = afterSku;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("{");
+        sb.append("\"id\":")
+                .append(id);
+        sb.append(",\"beforeNum\":")
+                .append(beforeNum);
+        sb.append(",\"afterNum\":")
+                .append(afterNum);
+        sb.append(",\"beforeSku\":\"")
+                .append(beforeSku).append('\"');
+        sb.append(",\"afterSku\":\"")
+                .append(afterSku).append('\"');
+        sb.append('}');
+        return sb.toString();
     }
 }
