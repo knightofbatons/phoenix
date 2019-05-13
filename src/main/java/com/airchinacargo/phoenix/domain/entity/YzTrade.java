@@ -28,7 +28,17 @@ public class YzTrade {
     private String receiverName;
     @SerializedName("coupon_details")
     private List<Coupon> coupons;
+    @SerializedName("buyer_message")
+    private String buyerMessage;
     private double payment;
+
+    public String getBuyerMessage() {
+        return buyerMessage;
+    }
+
+    public void setBuyerMessage(String buyerMessage) {
+        this.buyerMessage = buyerMessage;
+    }
 
     public int getTotalNum() {
         return totalNum;
@@ -131,6 +141,7 @@ public class YzTrade {
                 ", receiverMobile='" + receiverMobile + '\'' +
                 ", receiverName='" + receiverName + '\'' +
                 ", coupons=" + coupons +
+                ", buyerMessage='" + buyerMessage + '\'' +
                 ", payment=" + payment +
                 '}';
     }

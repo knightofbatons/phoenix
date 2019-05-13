@@ -66,6 +66,7 @@ public class JdServiceImplTest {
 
     @Test
     public void selectJdOrderIdByThirdOrder() {
+        jdService.selectJdOrderIdByThirdOrder(jdService.readJdToken().getAccessToken(), "E20190505104320042600027BF");
     }
 
     @Test
@@ -74,6 +75,7 @@ public class JdServiceImplTest {
 
     @Test
     public void orderTrack() {
+        logger.info(jdService.orderTrack(jdService.readJdToken().getAccessToken(), "85777111290") + "");
     }
 
     @Test

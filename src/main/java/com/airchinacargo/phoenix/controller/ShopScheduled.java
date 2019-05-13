@@ -10,7 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * 定时任务每个小时的 ?? 分 ?? 秒 执行
+ * 定时任务
  *
  * @author ChenYu 2018 04 08
  */
@@ -26,9 +26,9 @@ public class ShopScheduled {
     IShopService shopService;
 
     /**
-     * 每小时的 02 分运行一次定时任务 进行系统的基本 购买 和 发货 操作
+     * 每半个小时运行一次定时任务 进行系统的基本 购买 和 发货 操作
      */
-    @Scheduled(cron = "0 2 * * * *")
+    @Scheduled(cron = "0 0/30 * * * ?")
     public void shop() {
         logger.info("[ 定时任务运行 ] --> ");
         // 获取两种授权

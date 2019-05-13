@@ -22,6 +22,10 @@ public class SkuReplace {
     private String beforeSku;
     @Column(name = "after_sku")
     private String afterSku;
+    @Column(name = "before_name")
+    private String beforeName;
+    @Column(name = "after_name")
+    private String afterName;
 
     public int getId() {
         return id;
@@ -63,20 +67,32 @@ public class SkuReplace {
         this.afterSku = afterSku;
     }
 
+    public String getBeforeName() {
+        return beforeName;
+    }
+
+    public void setBeforeName(String beforeName) {
+        this.beforeName = beforeName;
+    }
+
+    public String getAfterName() {
+        return afterName;
+    }
+
+    public void setAfterName(String afterName) {
+        this.afterName = afterName;
+    }
+
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("{");
-        sb.append("\"id\":")
-                .append(id);
-        sb.append(",\"beforeNum\":")
-                .append(beforeNum);
-        sb.append(",\"afterNum\":")
-                .append(afterNum);
-        sb.append(",\"beforeSku\":\"")
-                .append(beforeSku).append('\"');
-        sb.append(",\"afterSku\":\"")
-                .append(afterSku).append('\"');
-        sb.append('}');
-        return sb.toString();
+        return "SkuReplace{" +
+                "id=" + id +
+                ", beforeNum=" + beforeNum +
+                ", afterNum=" + afterNum +
+                ", beforeSku='" + beforeSku + '\'' +
+                ", afterSku='" + afterSku + '\'' +
+                ", beforeName='" + beforeName + '\'' +
+                ", afterName='" + afterName + '\'' +
+                '}';
     }
 }

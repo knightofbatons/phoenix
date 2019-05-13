@@ -227,15 +227,20 @@ public class ShopController {
         return yzToJdRepository.findAll(PageRequest.of(page, size, sort));
     }
 
+    @Value("${SYS.SALT}")
+    private String sysSalt;
+
     /**
      * 根据 ID 删除替换关系
      *
      * @param id 需要删除的兑换关系对应的 ID
      */
-    @RequestMapping(value = "/deleteSkuReplaceById/{id}", method = RequestMethod.DELETE)
-    public void deleteSkuReplaceById(@PathVariable("id") int id) {
-        logger.info("[ deleteSkuReplaceById ] --> " + skuReplaceRepository.findById(id).toString());
-        skuReplaceRepository.deleteById(id);
+    @RequestMapping(value = "/deleteSkuReplaceById/{id}/{salt}", method = RequestMethod.DELETE)
+    public void deleteSkuReplaceById(@PathVariable("id") int id, @PathVariable("salt") String salt) {
+        if (sysSalt.endsWith(salt)) {
+            logger.info("[ deleteSkuReplaceById ] --> " + skuReplaceRepository.findById(id).toString());
+            skuReplaceRepository.deleteById(id);
+        }
     }
 
     /**
@@ -243,14 +248,13 @@ public class ShopController {
      *
      * @param id 需要删除的对应关系对应的 ID
      */
-    @RequestMapping(value = "/deleteYzToJdById/{id}", method = RequestMethod.DELETE)
-    public void deleteYzToJdById(@PathVariable("id") int id) {
-        logger.info("[ deleteYzToJdById ] --> " + yzToJdRepository.findById(id).toString());
-        yzToJdRepository.deleteById(id);
+    @RequestMapping(value = "/deleteYzToJdById/{id}/{salt}", method = RequestMethod.DELETE)
+    public void deleteYzToJdById(@PathVariable("id") int id, @PathVariable("salt") String salt) {
+        if (sysSalt.endsWith(salt)) {
+            logger.info("[ deleteYzToJdById ] --> " + yzToJdRepository.findById(id).toString());
+            yzToJdRepository.deleteById(id);
+        }
     }
-
-    @Value("${SYS.SALT}")
-    private String sysSalt;
 
 
     /**

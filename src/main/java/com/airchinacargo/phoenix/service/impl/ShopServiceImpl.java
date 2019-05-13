@@ -67,7 +67,6 @@ public class ShopServiceImpl implements IShopService {
 ////                        List<String> oidList = new ArrayList<>();
 ////                        // 遍历此京东子单下的商品
 ////                        for (JdSku jdSku : jdOrder.getSku()) {
-////                            //TODO 根据新的对应需求修改
 ////                            // 根据 skuId 和 num 找到 itemId 先去有赞京东商品对应表里找 找不到就是已经缺货替换过了 去京东商品替换里找到替换之前的 再去有赞京东商品对应表里找
 ////                            String itemId = yzToJdRepository.findBySkuIdAndNum(String.valueOf(jdSku.getSkuId()), jdSku.getNum())
 ////                                    .orElseGet(() -> yzToJdRepository.findBySkuIdAndNum(

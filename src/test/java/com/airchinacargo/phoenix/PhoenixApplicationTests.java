@@ -11,6 +11,7 @@ import com.mashape.unirest.http.HttpResponse;
 import com.mashape.unirest.http.JsonNode;
 import com.mashape.unirest.http.Unirest;
 import com.mashape.unirest.http.exceptions.UnirestException;
+import org.assertj.core.util.Lists;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
@@ -46,34 +47,41 @@ public class PhoenixApplicationTests {
     public void testSubmitOrder() {
 
         String jdToken = jdService.readJdToken().getAccessToken();
-        YzTrade yzTrade = yzService.getYzTreadByTid(yzService.readYzToken(), "E20190125115739094800029");
-        //yzTrade.setTid(yzTrade.getTid()+"BF");
-        //yzTrade.setReceiverDistrict("云岗区");
-        //yzTrade.setReceiverAddress("城区 联纺东路516号盛海蓝郡A座1单元1703室");
-        List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
-        //List<SkuNum> planSkuNum = new ArrayList<>();
-        //planSkuNum.add(new SkuNum("5969656",2));
-        if (planSkuNum.size() > 0) {
-            // 准备下单需要的参数
-            String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
-            Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, jdToken);
+        String tidString = "E20190510155828004500038";
+        String[] splitTid = tidString.split(",");
+        List<String> tidList = Lists.newArrayList(splitTid);
+        for (String tid : tidList) {
+            logger.info("单号： " + tid);
+            YzTrade yzTrade = yzService.getYzTreadByTid(yzService.readYzToken(), tid);
+            //yzTrade.setTid(yzTrade.getTid() + "BF");
+            //yzTrade.setReceiverDistrict("滦平县");
+            yzTrade.setReceiverAddress("丈八沟街道枫韵蓝湾社区2号楼");
+            List<SkuNum> planSkuNum = yzService.getSkuIdAndNum(yzTrade);
+            //List<SkuNum> planSkuNum = new ArrayList<>();
+            //planSkuNum.add(new SkuNum("3088504", 1));
+            if (planSkuNum.size() > 0) {
+                // 准备下单需要的参数
+                String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
+                Map<String, Integer> addressMap = jdService.getJdAddressFromAddress(address, jdToken);
 
-            //addressMap.replace("town",50829);
+                addressMap.replace("town", 53951);
 
-            // 如果获取地址正常
-            if (null != addressMap) {
-                String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("county");
-                List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
-                // 在京东下单并获得下单结果
-                //SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, realSkuNum, addressMap);
-                // 无论下单成功与否保存处理记录到数据库
-                //logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
-                //sysTradeRepository.save(sysTrade);
-            } else {
-                // 处理地址不正常订单记录到数据库
-                sysTradeRepository.save(new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "地址无法解析", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), 0));
+                // 如果获取地址正常
+                if (null != addressMap) {
+                    String area = addressMap.get("province") + "_" + addressMap.get("city") + "_" + addressMap.get("county");
+                    List<SkuNum> realSkuNum = jdService.getNeedToBuy(jdToken, planSkuNum, area);
+                    // 在京东下单并获得下单结果
+                    SysTrade sysTrade = jdService.submitOrder(jdToken, yzTrade, realSkuNum, addressMap);
+                    // 无论下单成功与否保存处理记录到数据库
+                    logger.info("[ submitOrder ] --> RETURN: " + sysTrade.toString());
+                    sysTradeRepository.save(sysTrade);
+                } else {
+                    // 处理地址不正常订单记录到数据库
+                    sysTradeRepository.save(new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "地址无法解析", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().get(0).getCouponName(), 0));
+                }
             }
         }
+
 
     }
 
@@ -83,7 +91,7 @@ public class PhoenixApplicationTests {
         try {
             response = Unirest.post("https://bizapi.jd.com/api/area/getTown")
                     .queryString("token", jdService.readJdToken().getAccessToken())
-                    .queryString("id", "50825")
+                    .queryString("id", "4343")
                     .asJson();
         } catch (UnirestException e) {
             e.printStackTrace();
@@ -91,20 +99,38 @@ public class PhoenixApplicationTests {
         logger.info(response.getBody().toString());
     }
 
+    @Test
+    public void testTid() {
+        logger.info(yzService.getYzTreadByTid(yzService.readYzToken(), "E20190510100536098400060").toString());
+    }
 
-//    @Test
-//    public void testDoPay(){
-//        HttpResponse<JsonNode> response = null;
-//        try {
-//            response = Unirest.post("https://bizapi.jd.com/api/order/doPay")
-//                    .queryString("token", jdService.readJdToken().getAccessToken())
-//                    .queryString("jdOrderId", "90838492256")
-//                    .asJson();
-//        } catch (UnirestException e) {
-//            e.printStackTrace();
-//        }
-//        logger.info(response.getBody().toString());
-//    }
+    @Test
+    public void testCancel() {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/order/cancel")
+                    .queryString("token", jdService.readJdToken().getAccessToken())
+                    .queryString("jdOrderId", "86264014681")
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
+
+    @Test
+    public void testDoPay() {
+        HttpResponse<JsonNode> response = null;
+        try {
+            response = Unirest.post("https://bizapi.jd.com/api/order/doPay")
+                    .queryString("token", jdService.readJdToken().getAccessToken())
+                    .queryString("jdOrderId", "90838492256")
+                    .asJson();
+        } catch (UnirestException e) {
+            e.printStackTrace();
+        }
+        logger.info(response.getBody().toString());
+    }
 
 
     @Test
@@ -120,8 +146,9 @@ public class PhoenixApplicationTests {
 
     @Test
     public void testMsgGet() {
-        logger.info(jdService.messageGet(jdService.getJdToken().getAccessToken(), "14").toString());
+        logger.info(jdService.messageGet(jdService.readJdToken().getAccessToken(), "14").toString());
     }
+
 
     @Test
     public void testShop() {

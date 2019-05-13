@@ -1,9 +1,6 @@
 package com.airchinacargo.phoenix.domain.entity;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import javax.persistence.*;
 
 /**
  * 有赞和京东商品对应关系
@@ -14,6 +11,7 @@ import javax.persistence.Table;
 @Table(name = "yz_to_jd")
 public class YzToJd {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private int id;
     @Column(name = "item_id")
@@ -22,6 +20,8 @@ public class YzToJd {
     private String skuId;
     @Column(name = "num")
     private int num;
+    @Column(name = "sku_name")
+    private String skuName;
 
     public int getId() {
         return id;
@@ -55,6 +55,14 @@ public class YzToJd {
         this.num = num;
     }
 
+    public String getSkuName() {
+        return skuName;
+    }
+
+    public void setSkuName(String skuName) {
+        this.skuName = skuName;
+    }
+
     public YzToJd() {
     }
 
@@ -66,16 +74,12 @@ public class YzToJd {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("{");
-        sb.append("\"id\":")
-                .append(id);
-        sb.append(",\"itemId\":\"")
-                .append(itemId).append('\"');
-        sb.append(",\"skuId\":\"")
-                .append(skuId).append('\"');
-        sb.append(",\"num\":")
-                .append(num);
-        sb.append('}');
-        return sb.toString();
+        return "YzToJd{" +
+                "id=" + id +
+                ", itemId='" + itemId + '\'' +
+                ", skuId='" + skuId + '\'' +
+                ", num=" + num +
+                ", skuName='" + skuName + '\'' +
+                '}';
     }
 }

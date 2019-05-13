@@ -115,7 +115,7 @@ public class YzServiceImpl implements IYzService {
      * <p>
      * FIELDS 需要的订单信息字段
      */
-    private final String FIELDS = "coupon_details,num,tid,payment,orders,receiver_city,receiver_state,receiver_district,receiver_address,receiver_mobile,receiver_name";
+    private final String FIELDS = "coupon_details,num,tid,payment,orders,receiver_city,receiver_state,receiver_district,receiver_address,receiver_mobile,receiver_name,buyer_message";
 
     /**
      * 获取付款未发货订单

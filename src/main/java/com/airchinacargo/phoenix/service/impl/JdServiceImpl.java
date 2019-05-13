@@ -18,8 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -79,12 +79,8 @@ public class JdServiceImpl implements IJdService {
         String timestamp = mediumDateFormat.format(new Date());
 
         // SpringBoot 2.0 暂且存在从配置文件中读取中文乱码的问题 SpringBoot 1.x 的解决办法无效 所以在这里转码
-        String username = null;
-        try {
-            username = new String(rowUsername.getBytes("ISO-8859-1"), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        String username;
+        username = new String(rowUsername.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
 
         String grantType = "access_token";
         String md5Password = md5Hex(password);
@@ -431,14 +427,14 @@ public class JdServiceImpl implements IJdService {
      * 下单需要的参数
      * <p>
      * email 准备接收物流信息反馈的邮箱
-     * PAYMENT_MAX 最多付款为 20 块邮费
+     * PAYMENT_MAX 最多付款 超出的定义为实际付款订单
      */
     @Value("${Fh.EMAIL}")
     private String email;
     @Value("${SYS.PAYMENT_MAX}")
-    private Double PAYMENT_MAX;
+    private Double paymentMax;
     @Value("${INVOICE.TYPE}")
-    private int INVOICE_TYPE;
+    private int invoiceType;
 
     /**
      * 在京东下单
@@ -452,15 +448,11 @@ public class JdServiceImpl implements IJdService {
     @Override
     public SysTrade submitOrder(String accessToken, YzTrade yzTrade, List<SkuNum> skuNum, Map<String, Integer> area) {
         // SpringBoot 2.0 暂且存在从配置文件中读取中文乱码的问题 SpringBoot 1.x 的解决办法无效 所以在这里转码
-        String title = null;
-        try {
-            title = new String(rowTitle.getBytes("ISO-8859-1"), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        String title;
+        title = new String(rowTitle.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
         String address = yzTrade.getReceiverState() + yzTrade.getReceiverCity() + yzTrade.getReceiverDistrict() + yzTrade.getReceiverAddress();
         // 判断是不是实际花钱购买的 最多付款
-        if (PAYMENT_MAX < yzTrade.getPayment()) {
+        if (paymentMax < yzTrade.getPayment()) {
             return new SysTrade(yzTrade.getTid(), "NO_JD_ORDER_ID", new Date(), "此订单是实际付款订单", 0.00, false, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, "NO_COUPONS_USED", 0);
         }
         // 判断是不是有缺货商品的所有可替代都缺货
@@ -482,10 +474,11 @@ public class JdServiceImpl implements IJdService {
                     .queryString("address", yzTrade.getReceiverAddress())
                     .queryString("mobile", yzTrade.getReceiverMobile())
                     .queryString("email", email)
+                    .queryString("remark", yzTrade.getBuyerMessage())
                     // 订单开票方式 集中开票
                     .queryString("invoiceState", 2)
                     //发票类型 增值税发票 1 普通发票 2 增值税发票 3 电子发票
-                    .queryString("invoiceType", INVOICE_TYPE)
+                    .queryString("invoiceType", invoiceType)
                     // 发票类型 单位
                     .queryString("selectedInvoiceTitle", 5)
                     // 发票抬头 北京中外运华力物流有限公司
@@ -519,7 +512,7 @@ public class JdServiceImpl implements IJdService {
         }
         // 下单成功
         JSONObject result = reJsonObject.getJSONObject("result");
-        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().size() != 0 ? yzTrade.getCoupons().get(0).getCouponName() : "NO_COUPONS_USED", INVOICE_TYPE);
+        return new SysTrade(yzTrade.getTid(), String.valueOf(result.getLong("jdOrderId")), new Date(), resultMessage, result.getDouble("orderPrice"), true, false, yzTrade.getReceiverName(), yzTrade.getReceiverMobile(), address, yzTrade.getCoupons().size() != 0 ? yzTrade.getCoupons().get(0).getCouponName() : "NO_COUPONS_USED", invoiceType);
     }
 
     /**
@@ -636,7 +629,7 @@ public class JdServiceImpl implements IJdService {
     public void cancel(String accessToken, String jdOrderId) {
         HttpResponse<JsonNode> response = null;
         try {
-            response = Unirest.post("https://bizapi.jd.com/api/order/cancel\n")
+            response = Unirest.post("https://bizapi.jd.com/api/order/cancel")
                     .queryString("token", accessToken)
                     .queryString("jdOrderId", jdOrderId)
                     .asJson();
@@ -736,16 +729,12 @@ public class JdServiceImpl implements IJdService {
     @Override
     public void invoiceSubmit(String accessToken, String supplierOrder, String markId, String settlementId, Map<String, Integer> area, String invoiceDate, int invoiceNum, BigDecimal invoicePrice, int currentBatch, int totalBatch, BigDecimal totalBatchInvoiceAmount) {
         // SpringBoot 2.0 暂且存在从配置文件中读取中文乱码的问题 SpringBoot 1.x 的解决办法无效 所以在这里转码
-        String title = null;
-        String billToEr = null;
-        String billToAddress = null;
-        try {
-            title = new String(rowTitle.getBytes("ISO-8859-1"), "UTF-8");
-            billToEr = new String(rowBillToEr.getBytes("ISO-8859-1"), "UTF-8");
-            billToAddress = new String(rowBillToAddress.getBytes("ISO-8859-1"), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        String title;
+        String billToEr;
+        String billToAddress;
+        title = new String(rowTitle.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        billToEr = new String(rowBillToEr.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        billToAddress = new String(rowBillToAddress.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
         HttpResponse<JsonNode> response = null;
         try {
             logger.info("[ invoiceSubmit ] --> API_INPUT: supplierOrder: " + supplierOrder + " markId: " + markId + " settlementId: " + settlementId + " invoiceType: " + 2 + " invoiceOrg: " + invoiceOrg + " bizInvoiceContent: " + 1 + " invoiceDate: " + invoiceDate + " title: " + title + " enterpriseTaxpayer: " + enterpriseTaxpayer + " billToer: " + billToEr + " billToContact: " + billToContact + " billToProvince: " + area.get("province") + " billToCity: " + area.get("city") + " billToCounty: " + area.get("county") + " billToTown: " + area.get("town") + " billToAddress: " + billToAddress + " invoiceNum: " + invoiceNum + " invoicePrice: " + invoicePrice + " currentBatch: " + currentBatch + " totalBatch: " + totalBatch + " totalBatchInvoiceAmount: " + totalBatchInvoiceAmount);
@@ -872,14 +861,10 @@ public class JdServiceImpl implements IJdService {
     @Override
     public void invoice(String accessToken, int beginId, int endId) {
         // SpringBoot 2.0 暂且存在从配置文件中读取中文乱码的问题 SpringBoot 1.x 的解决办法无效 所以在这里转码
-        String billToCityAndCounty = null;
-        String billToAddress = null;
-        try {
-            billToCityAndCounty = new String(rowBillToCityAndCounty.getBytes("ISO-8859-1"), "UTF-8");
-            billToAddress = new String(rowBillToAddress.getBytes("ISO-8859-1"), "UTF-8");
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
+        String billToCityAndCounty;
+        String billToAddress;
+        billToCityAndCounty = new String(rowBillToCityAndCounty.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+        billToAddress = new String(rowBillToAddress.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
         // 获取待处理子订单列表
         List<JdOrder> needToInvoiceJdOrderList = this.getNeedToInvoiceJdOrderList(accessToken, beginId, endId);
         // 过滤掉未投妥订单
